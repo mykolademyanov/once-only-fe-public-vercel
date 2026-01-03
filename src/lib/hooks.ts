@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, ApiError } from "./api";
 
-export type Plan = "free" | "starter" | "pro" | "business" | string;
+export type Plan = string;
 
 export type Me = {
   plan: Plan;
   key_preview: string;
   is_active: boolean;
   current_period_end: string | null;
+  requests_total_all_time?: number;
+  blocked_total_all_time?: number;
 };
 
 export type Usage = {
@@ -17,18 +19,24 @@ export type Usage = {
   month: string;
   usage: number;
   limit: number;
+  requests_total_month?: number;
+  blocked_total_month?: number;
 };
 
 export type EventItem = {
   id?: string;
-  type: "duplicate" | "over_limit" | string;
-  ts?: string;
+  ts: number;
+  type: string;
+  req_id?: string;
+  key?: string;
+  first_seen?: string;
+  first_seen_at?: string;
+  plan?: string | null;
+  usage?: number | null;
+  limit?: number | null;
+  meta?: Record<string, unknown> | null;
+  // backward compat (if you ever had these)
   created_at?: string;
-  request_id?: string;
-  dedupe_key?: string;
-  path?: string;
-  method?: string;
-  meta?: Record<string, unknown>;
 };
 
 export type MetricsRow = {
@@ -50,7 +58,9 @@ function normalizeApiError(e: unknown): ApiError {
   return new ApiError(0, "UNKNOWN", "Unknown error", e);
 }
 
-export function useMe() {
+/* ---------- HOOKS ---------- */
+
+export function useMe(refreshKey = 0) {
   const [st, setSt] = useState<State<Me>>({ data: null, loading: true, error: null });
 
   useEffect(() => {
@@ -62,12 +72,12 @@ export function useMe() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   return st;
 }
 
-export function useUsage() {
+export function useUsage(refreshKey = 0) {
   const [st, setSt] = useState<State<Usage>>({ data: null, loading: true, error: null });
 
   useEffect(() => {
@@ -79,14 +89,13 @@ export function useUsage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   return st;
 }
 
 export function useEvents(limit = 50, pollMs = 7000) {
   const [st, setSt] = useState<State<EventItem[]>>({ data: null, loading: true, error: null });
-  const tick = useRef(0);
 
   useEffect(() => {
     let alive = true;
@@ -105,10 +114,7 @@ export function useEvents(limit = 50, pollMs = 7000) {
 
     load(true);
 
-    const id = window.setInterval(() => {
-      tick.current += 1;
-      load(false);
-    }, pollMs);
+    const id = window.setInterval(() => load(false), pollMs);
 
     return () => {
       alive = false;
@@ -119,8 +125,12 @@ export function useEvents(limit = 50, pollMs = 7000) {
   return useMemo(() => st, [st]);
 }
 
-export function useMetrics(fromDay: string, toDay: string) {
-  const [st, setSt] = useState<State<MetricsRow[]>>({ data: null, loading: true, error: null });
+export function useMetrics(fromDay: string, toDay: string, refreshKey = 0) {
+  const [st, setSt] = useState<State<MetricsRow[]>>({
+    data: null,
+    loading: true,
+    error: null,
+  });
 
   useEffect(() => {
     let alive = true;
@@ -131,7 +141,7 @@ export function useMetrics(fromDay: string, toDay: string) {
     return () => {
       alive = false;
     };
-  }, [fromDay, toDay]);
+  }, [fromDay, toDay, refreshKey]);
 
   return st;
 }

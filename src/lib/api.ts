@@ -30,7 +30,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   const key = getApiKey();
   if (!key) throw new ApiError(401, "UNAUTHORIZED", "Missing API key");
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`/api/proxy${path}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${key}`,

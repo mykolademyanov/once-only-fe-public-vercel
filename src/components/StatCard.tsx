@@ -1,4 +1,12 @@
-export default function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+export default function StatCard({
+  label,
+  value,
+  sub,
+}: {
+  label: React.ReactNode;
+  value: string | number;
+  sub?: string;
+}) {
   return (
     <div style={{ border: "1px solid #eee", borderRadius: 16, padding: 16 }}>
       <div style={{ fontSize: 13, color: "#555" }}>{label}</div>
