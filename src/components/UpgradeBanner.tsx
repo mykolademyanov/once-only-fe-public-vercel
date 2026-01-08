@@ -25,7 +25,7 @@ export default function UpgradeBanner({ reason }: { reason: "inactive" | "paymen
       <div style={{ marginTop: 6, color: "#444", fontSize: 14 }}>{hint}</div>
       <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <a
-          href="https://onceonly.app"
+          href="https://onceonly.tech"
           target="_blank"
           rel="noreferrer"
           style={{
@@ -39,9 +39,6 @@ export default function UpgradeBanner({ reason }: { reason: "inactive" | "paymen
         >
           Upgrade
         </a>
-        <span style={{ fontSize: 12, color: "#666", alignSelf: "center" }}>
-          (CTA placeholder — можна замінити на реальний billing link)
-        </span>
       </div>
     </div>
   );

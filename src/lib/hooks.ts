@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiGet, ApiError } from "./api";
+
+/* ---------- TYPES ---------- */
 
 export type Plan = string;
 
@@ -14,13 +16,19 @@ export type Me = {
   blocked_total_all_time?: number;
 };
 
-export type Usage = {
-  plan: Plan;
-  month: string;
+// Нова структура для розділеного використання
+export type UsageKind = {
   usage: number;
   limit: number;
-  requests_total_month?: number;
-  blocked_total_month?: number;
+  requests_total_month: number;
+  blocked_total_month: number;
+};
+
+export type UsageAll = {
+  plan: Plan;
+  month: string;
+  make: UsageKind; // Automation (Make/Zapier)
+  ai: UsageKind;   // AI Agents
 };
 
 export type EventItem = {
@@ -29,14 +37,15 @@ export type EventItem = {
   type: string;
   req_id?: string;
   key?: string;
-  first_seen?: string;
   first_seen_at?: string;
   plan?: string | null;
   usage?: number | null;
   limit?: number | null;
-  meta?: Record<string, unknown> | null;
-  // backward compat (if you ever had these)
-  created_at?: string;
+  charged?: number; // 1 якщо списано кредит, 0 якщо ні
+  lease_id?: string; // наявність цього поля вказує на AI івент
+  done_at?: string;
+  result_hash?: string;
+  error_code?: string;
 };
 
 export type MetricsRow = {
@@ -45,6 +54,10 @@ export type MetricsRow = {
   locks_created: number;
   duplicates_blocked: number;
   rate_limited: number;
+  // Нові поля для AI метрик
+  ai_acquired?: number;
+  ai_completed?: number;
+  ai_failed?: number;
 };
 
 type State<T> = {
@@ -65,30 +78,28 @@ export function useMe(refreshKey = 0) {
 
   useEffect(() => {
     let alive = true;
-    setSt((x) => ({ ...x, loading: true, error: null }));
     apiGet<Me>("/v1/me")
       .then((data) => alive && setSt({ data, loading: false, error: null }))
       .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [refreshKey]);
 
   return st;
 }
 
+/**
+ * Оновлений хук для отримання всіх лімітів (Make + AI)
+ */
 export function useUsage(refreshKey = 0) {
-  const [st, setSt] = useState<State<Usage>>({ data: null, loading: true, error: null });
+  const [st, setSt] = useState<State<UsageAll>>({ data: null, loading: true, error: null });
 
   useEffect(() => {
     let alive = true;
-    setSt((x) => ({ ...x, loading: true, error: null }));
-    apiGet<Usage>("/v1/usage")
+    // Викликаємо новий ендпоінт /all
+    apiGet<UsageAll>("/v1/usage/all")
       .then((data) => alive && setSt({ data, loading: false, error: null }))
       .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [refreshKey]);
 
   return st;
@@ -113,7 +124,6 @@ export function useEvents(limit = 50, pollMs = 7000) {
     }
 
     load(true);
-
     const id = window.setInterval(() => load(false), pollMs);
 
     return () => {
@@ -138,9 +148,7 @@ export function useMetrics(fromDay: string, toDay: string, refreshKey = 0) {
     apiGet<MetricsRow[]>(`/v1/metrics?from_day=${fromDay}&to_day=${toDay}`)
       .then((data) => alive && setSt({ data, loading: false, error: null }))
       .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [fromDay, toDay, refreshKey]);
 
   return st;

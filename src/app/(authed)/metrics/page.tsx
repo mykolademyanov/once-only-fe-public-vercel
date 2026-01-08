@@ -15,71 +15,150 @@ import {
   Legend,
 } from "recharts";
 
-function DateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      type="date"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{ border: "1px solid #ddd", borderRadius: 12, padding: "8px 10px", fontSize: 14 }}
-    />
-  );
-}
+const dateStyle = {
+  border: "none",
+  background: "transparent",
+  fontSize: 13,
+  padding: "6px 8px",
+  outline: "none",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontWeight: 600
+};
 
 export default function MetricsPage() {
   const today = new Date();
-  const defaultFrom = toISODate(addDays(today, -13)); // 14 days inclusive feel
-  const defaultTo = toISODate(today);
-
-  const [fromDay, setFromDay] = useState(defaultFrom);
-  const [toDay, setToDay] = useState(defaultTo);
+  const [fromDay, setFromDay] = useState(toISODate(addDays(today, -13)));
+  const [toDay, setToDay] = useState(toISODate(today));
 
   const metrics = useMetrics(fromDay, toDay);
 
-  const paymentRequired = metrics.error?.status === 402;
-  const rateLimited = metrics.error?.status === 429;
+  // Важливо: перевіряємо наявність даних, щоб графік не "ластоножив" при завантаженні
+  const data = useMemo(() => {
+    if (!metrics.data) return [];
+    return metrics.data;
+  }, [metrics.data]);
 
-  const data = useMemo(() => metrics.data ?? [], [metrics.data]);
+  const isEmpty = data.length === 0 && !metrics.loading;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div>
-        <div style={{ fontSize: 24, fontWeight: 900 }}>Metrics</div>
-        <div style={{ color: "#555", marginTop: 6, fontSize: 14 }}>Daily counters (select range).</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em" }}>Metrics</div>
+          <div style={{ color: "#666", fontSize: 14, marginTop: 4 }}>Performance and usage trends for your keys.</div>
+        </div>
+
+        {/* DATE PICKER */}
+        <div style={{
+          display: "flex",
+          gap: 4,
+          background: "#f5f5f5",
+          padding: "4px 8px",
+          borderRadius: 12,
+          alignItems: "center",
+          border: "1px solid #eee"
+        }}>
+           <input type="date" value={fromDay} onChange={e => setFromDay(e.target.value)} style={dateStyle} />
+           <span style={{ color: "#aaa", fontWeight: 900 }}>→</span>
+           <input type="date" value={toDay} onChange={e => setToDay(e.target.value)} style={dateStyle} />
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontSize: 13, color: "#555" }}>From</span>
-        <DateInput value={fromDay} onChange={setFromDay} />
-        <span style={{ fontSize: 13, color: "#555" }}>To</span>
-        <DateInput value={toDay} onChange={setToDay} />
-      </div>
+      {metrics.error?.status === 402 && <UpgradeBanner reason="payment" />}
 
-      {paymentRequired ? <UpgradeBanner reason="payment" /> : null}
-      {rateLimited ? <UpgradeBanner reason="rate" /> : null}
-
-      <div style={{ border: "1px solid #eee", borderRadius: 16, padding: 16 }}>
-        {metrics.loading ? (
-          <div style={{ color: "#555" }}>Loading metrics…</div>
-        ) : metrics.data ? (
-          <div style={{ width: "100%", height: 360 }}>
-            <ResponsiveContainer>
-              <LineChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="checks_total" dot={false} />
-                <Line type="monotone" dataKey="duplicates_blocked" dot={false} />
-                <Line type="monotone" dataKey="rate_limited" dot={false} />
-                <Line type="monotone" dataKey="locks_created" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+      {/* CHART CONTAINER */}
+      <div style={{
+        border: "1px solid #eee",
+        borderRadius: 20,
+        padding: "32px 16px 16px 16px",
+        background: "white",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+        position: "relative",
+        minHeight: 450
+      }}>
+        {metrics.loading && (
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "#999", fontSize: 14, fontWeight: 500 }}>
+            Loading charts...
           </div>
-        ) : (
-          <div style={{ color: "#555" }}>No metrics data.</div>
         )}
+
+        {isEmpty && (
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "#999", fontSize: 14 }}>
+            No data for this period.
+          </div>
+        )}
+
+        <div style={{ width: "100%", height: 400, opacity: metrics.loading ? 0.3 : 1, transition: "opacity 0.2s" }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+              <XAxis
+                dataKey="day"
+                axisLine={false}
+                tickLine={false}
+                tick={{fontSize: 11, fill: "#999", fontWeight: 500}}
+                dy={12}
+                // Показуємо кожну другу дату, якщо масив великий
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{fontSize: 11, fill: "#999", fontWeight: 500}}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: 'none',
+                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                  fontSize: 13,
+                  fontWeight: 600
+                }}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                iconType="circle"
+                wrapperStyle={{paddingBottom: 30, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em"}}
+              />
+
+              {/* Automation - BLACK */}
+              <Line
+                name="Automation"
+                type="monotone"
+                dataKey="checks_total"
+                stroke="#111"
+                strokeWidth={3}
+                dot={false}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+
+              {/* AI - INDIGO */}
+              <Line
+                name="AI Agent Runs"
+                type="monotone"
+                dataKey="ai_acquired"
+                stroke="#4f46e5"
+                strokeWidth={3}
+                dot={false}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+
+              {/* Blocks - DASHED GRAY */}
+              <Line
+                name="Blocked"
+                type="monotone"
+                dataKey="duplicates_blocked"
+                stroke="#cbd5e1"
+                strokeDasharray="6 6"
+                strokeWidth={2}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
