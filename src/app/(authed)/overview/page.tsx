@@ -89,7 +89,7 @@ export default function OverviewPage() {
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 4, height: 20, background: "#111", borderRadius: 2 }}></div>
-            <h2 style={{ fontSize: 18, fontWeight: 800 }}>Automation Locks</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 800 }}>Automation Locks (MAKE/ZAPIER)</h2>
           </div>
           <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
             Deduplication stats for webhooks and standard integration workflows.
@@ -99,7 +99,7 @@ export default function OverviewPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
           {/* Monthly Progress Bar */}
           <div style={{ gridColumn: "1 / -1", border: "1px solid #eee", borderRadius: 20, padding: 24, background: "white" }}>
-            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14 }}>Monthly Request Limit</div>
+            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14 }}>Monthly Duplicates Blocked</div>
             <ProgressBar value={usage.data?.make.usage ?? 0} max={usage.data?.make.limit ?? 1} color="#111" />
           </div>
 
@@ -152,6 +152,12 @@ export default function OverviewPage() {
             <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#4f46e5" }}>AI Credit Consumption</div>
             <ProgressBar value={usage.data?.ai.usage ?? 0} max={usage.data?.ai.limit ?? 1} color="#4f46e5" />
           </div>
+          <StatCard
+            label={<InfoTip label="AI Lease Calls (Month)" description="All /ai/lease calls including polling." />}
+            value={usage.data?.ai.requests_total_month ?? 0}
+            color="#4f46e5"
+            sub="Total lease requests"
+          />
 
           <StatCard
             label={<InfoTip label="AI Tasks" description="Number of agent tasks initiated today (acquired leases)." />}
