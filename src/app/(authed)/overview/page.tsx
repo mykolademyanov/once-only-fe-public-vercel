@@ -192,14 +192,14 @@ export default function OverviewPage() {
               />
 
               <StatCard
-                label={<InfoTip label="Success Rate" description="Completed vs acquired tasks (today)."} />}
+                label={<InfoTip label="Success Rate" description="Completed vs acquired tasks (today)." />}
                 value={today?.ai_acquired ? `${aiSuccessRate}%` : "—"}
                 color={aiSuccessRate > 90 ? "#059669" : "#4f46e5"}
                 sub="Task reliability"
               />
 
               <StatCard
-                label={<InfoTip label="Agent Errors (Today)" description="Tasks that failed today (via /fail or timeout)."} />}
+                label={<InfoTip label="Agent Errors (Today)" description="Tasks that failed today (via /fail or timeout)." />}
                 value={today?.ai_failed ?? 0}
                 color={today?.ai_failed ? "#dc2626" : "#666"}
                 sub="Check logs for errors"
