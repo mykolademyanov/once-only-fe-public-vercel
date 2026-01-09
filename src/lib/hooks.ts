@@ -16,12 +16,14 @@ export type Me = {
   blocked_total_all_time?: number;
 };
 
-// Нова структура для розділеного використання
+// New structure for split usage
 export type UsageKind = {
   usage: number;
   limit: number;
   requests_total_month: number;
   blocked_total_month: number;
+  charged_total_month?: number;
+  polling_total_month?: number;
 };
 
 export type UsageAll = {
@@ -41,8 +43,9 @@ export type EventItem = {
   plan?: string | null;
   usage?: number | null;
   limit?: number | null;
-  charged?: number; // 1 якщо списано кредит, 0 якщо ні
-  lease_id?: string; // наявність цього поля вказує на AI івент
+  charged?: number;     // 1|0
+  version?: number;
+  lease_id?: string;    // Presence of this field indicates an AI event
   done_at?: string;
   result_hash?: string;
   error_code?: string;
@@ -54,7 +57,7 @@ export type MetricsRow = {
   locks_created: number;
   duplicates_blocked: number;
   rate_limited: number;
-  // Нові поля для AI метрик
+  // New fields for AI metrics
   ai_acquired?: number;
   ai_completed?: number;
   ai_failed?: number;
@@ -88,14 +91,14 @@ export function useMe(refreshKey = 0) {
 }
 
 /**
- * Оновлений хук для отримання всіх лімітів (Make + AI)
+ * Updated hook for retrieving all limits (Make + AI)
  */
 export function useUsage(refreshKey = 0) {
   const [st, setSt] = useState<State<UsageAll>>({ data: null, loading: true, error: null });
 
   useEffect(() => {
     let alive = true;
-    // Викликаємо новий ендпоінт /all
+    // Calling the new /all endpoint
     apiGet<UsageAll>("/v1/usage/all")
       .then((data) => alive && setSt({ data, loading: false, error: null }))
       .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));

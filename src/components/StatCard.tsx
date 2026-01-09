@@ -6,7 +6,7 @@ export default function StatCard({
   label,
   value,
   sub,
-  color = "#000", // Додаємо колір за замовчуванням (чорний)
+  color = "#000", // Default color is set to black
 }: {
   label: React.ReactNode;
   value: string | number;
@@ -14,39 +14,39 @@ export default function StatCard({
   color?: string;
 }) {
   return (
-    <div 
-      style={{ 
-        border: "1px solid #eee", 
-        borderRadius: 16, 
-        padding: 16, 
+    <div
+      style={{
+        border: "1px solid #eee",
+        borderRadius: 16,
+        padding: 16,
         background: "white",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         minHeight: 100,
-        // Додаємо легку тінь для об'єму
+        // Adding a subtle shadow for depth
         boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
       }}
     >
-      {/* Мітка (Label) */}
+      {/* Label section */}
       <div style={{ fontSize: 13, color: "#666", fontWeight: 500 }}>
         {label}
       </div>
 
-      {/* Значення (Value) */}
-      <div 
-        style={{ 
-          fontSize: 28, 
-          fontWeight: 900, 
+      {/* Primary Value section */}
+      <div
+        style={{
+          fontSize: 28,
+          fontWeight: 900,
           marginTop: 4,
-          color: color, // Використовуємо кастомний колір тут
+          color: color, // Applying custom color here
           letterSpacing: "-0.02em"
         }}
       >
         {value}
       </div>
 
-      {/* Додаткова інформація (Sub) */}
+      {/* Optional Subtext section */}
       {sub ? (
         <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
           {sub}

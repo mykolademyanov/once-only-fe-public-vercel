@@ -11,7 +11,7 @@ import { toISODate } from "@/lib/date";
 export default function OverviewPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Авто-рефреш кожні 10 секунд для Real-time ефекту
+  // Auto-refresh data every 10 seconds
   useEffect(() => {
     const id = window.setInterval(() => setRefreshKey((x) => x + 1), 10_000);
     return () => window.clearInterval(id);
@@ -25,18 +25,7 @@ export default function OverviewPage() {
   const paymentRequired = me.error?.status === 402 || usage.error?.status === 402;
   const inactive = me.data ? !me.data.is_active : false;
 
-  // Дані з бекенду (MetricsRow)
   const today = metrics.data?.[0];
-
-  // Розрахунок ефективності
-  const efficiency = today?.checks_total
-    ? Math.round((today.duplicates_blocked / today.checks_total) * 100)
-    : 0;
-
-  // Розрахунок успішності AI (на основі ai_completed та ai_failed з твого коду)
-  const aiSuccessRate = today?.ai_acquired
-    ? Math.round(((today.ai_completed || 0) / today.ai_acquired) * 100)
-    : 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32, paddingBottom: 60 }}>
@@ -57,6 +46,7 @@ export default function OverviewPage() {
         </div>
       </div>
 
+      {/* --- ALERTS --- */}
       {paymentRequired && <UpgradeBanner reason="payment" />}
       {!paymentRequired && inactive && <UpgradeBanner reason="inactive" />}
 
@@ -136,54 +126,87 @@ export default function OverviewPage() {
             <h2 style={{ fontSize: 18, fontWeight: 800, color: "#4f46e5" }}>AI Agent Intelligence</h2>
           </div>
           <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
-            Advanced lease management and credit tracking for autonomous agents.
+            Charged tasks vs free polling, plus reliability signals.
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-          {/* Monthly AI Credits Bar */}
-          <div style={{
-            gridColumn: "1 / -1",
-            border: "1px solid #e0e7ff",
-            borderRadius: 20,
-            padding: 24,
-            background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)"
-          }}>
-            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#4f46e5" }}>AI Credit Consumption</div>
-            <ProgressBar value={usage.data?.ai.usage ?? 0} max={usage.data?.ai.limit ?? 1} color="#4f46e5" />
-          </div>
-          <StatCard
-            label={<InfoTip label="AI Lease Calls (Month)" description="All /ai/lease calls including polling." />}
-            value={usage.data?.ai.requests_total_month ?? 0}
-            color="#4f46e5"
-            sub="Total lease requests"
-          />
+        {/* AI Metrics Calculation Block */}
+        {(() => {
+          const ai = usage.data?.ai;
+          const charged = ai?.charged_total_month ?? ai?.usage ?? 0;
+          const polling = ai?.polling_total_month ?? 0;
+          const limit = ai?.limit ?? 1;
+          const leaseCalls = ai?.requests_total_month ?? 0;
+          const blocked = ai?.blocked_total_month ?? 0;
 
-          <StatCard
-            label={<InfoTip label="AI Tasks" description="Number of agent tasks initiated today (acquired leases)." />}
-            value={today?.ai_acquired ?? 0}
-            color="#4f46e5"
-            sub="Today's agent runs"
-          />
-          <StatCard
-            label={<InfoTip label="Success Rate" description="Percentage of AI tasks that called the /complete endpoint successfully." />}
-            value={today?.ai_acquired ? `${aiSuccessRate}%` : "—"}
-            color={aiSuccessRate > 90 ? "#059669" : "#4f46e5"}
-            sub="Task reliability"
-          />
-          <StatCard
-            label={<InfoTip label="Agent Errors" description="Number of AI tasks that explicitly failed (called /fail endpoint) today." />}
-            value={today?.ai_failed ?? 0}
-            color={today?.ai_failed ? "#dc2626" : "#666"}
-            sub="Check logs for errors"
-          />
-          <StatCard
-            label={<InfoTip label="Optimization" description="The percentage of your total infrastructure traffic that OnceOnly successfully optimized." />}
-            value={`${efficiency}%`}
-            color="#4f46e5"
-            sub="Traffic overhead saved"
-          />
-        </div>
+          const aiSuccessRate =
+            today?.ai_acquired ? Math.round(((today.ai_completed || 0) / today.ai_acquired) * 100) : 0;
+
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  border: "1px solid #e0e7ff",
+                  borderRadius: 20,
+                  padding: 24,
+                  background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
+                }}
+              >
+                <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#4f46e5" }}>
+                  AI Credits Used (Charged)
+                </div>
+                <ProgressBar value={charged} max={limit} color="#4f46e5" />
+                <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
+                  Charged: <b>{charged.toLocaleString()}</b> / {limit.toLocaleString()} • Free polling:{" "}
+                  <b>{polling.toLocaleString()}</b> • Over-limit blocks: <b>{blocked.toLocaleString()}</b>
+                </div>
+              </div>
+
+              <StatCard
+                label={<InfoTip label="Charged Tasks (Month)" description="How many unique AI runs were billed (acquired leases)." />}
+                value={charged}
+                color="#4f46e5"
+                sub="Billed agent starts"
+              />
+
+              <StatCard
+                label={<InfoTip label="Free Polling (Month)" description="How many /ai/lease calls were free polls on existing keys." />}
+                value={polling}
+                color="#4f46e5"
+                sub="Non-billed status checks"
+              />
+
+              <StatCard
+                label={<InfoTip label="AI Lease Calls (Month)" description="All /ai/lease calls in the month (charged + polling)." />}
+                value={leaseCalls}
+                color="#4f46e5"
+                sub="Total lease requests"
+              />
+
+              <StatCard
+                label={<InfoTip label="AI Tasks (Today)" description="Number of tasks initiated today (acquired leases)." />}
+                value={today?.ai_acquired ?? 0}
+                color="#4f46e5"
+                sub="Today's agent runs"
+              />
+
+              <StatCard
+                label={<InfoTip label="Success Rate" description="Completed vs acquired tasks (today)."} />}
+                value={today?.ai_acquired ? `${aiSuccessRate}%` : "—"}
+                color={aiSuccessRate > 90 ? "#059669" : "#4f46e5"}
+                sub="Task reliability"
+              />
+
+              <StatCard
+                label={<InfoTip label="Agent Errors (Today)" description="Tasks that failed today (via /fail or timeout)."} />}
+                value={today?.ai_failed ?? 0}
+                color={today?.ai_failed ? "#dc2626" : "#666"}
+                sub="Check logs for errors"
+              />
+            </div>
+          );
+        })()}
       </section>
 
       {/* --- FOOTER ANALYTICS --- */}
@@ -198,13 +221,6 @@ export default function OverviewPage() {
           <div style={{ fontSize: 11, color: "#888", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>Lifetime Requests</div>
           <div style={{ fontSize: 32, fontWeight: 900, marginTop: 8 }}>{me.data?.requests_total_all_time?.toLocaleString() ?? 0}</div>
           <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>Total processed volume</div>
-        </div>
-        <div style={{ textAlign: "center", padding: 24, background: "#f0fdf4", borderRadius: 20, border: "1px solid #dcfce7" }}>
-          <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>Saved Costs</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: "#059669", marginTop: 8 }}>
-            ${((me.data?.blocked_total_all_time ?? 0) * 0.01).toFixed(2)}
-          </div>
-          <div style={{ fontSize: 12, color: "#059669", marginTop: 4 }}>Estimated at $0.01/op</div>
         </div>
       </div>
     </div>

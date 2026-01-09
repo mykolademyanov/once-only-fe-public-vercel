@@ -4,7 +4,7 @@ import InfoTip from "@/components/InfoTip";
 import { EventItem } from "@/lib/hooks";
 
 function formatWhen(e: EventItem) {
-  // Використовуємо ts (epoch) або first_seen_at / done_at
+  // Use ts (epoch) or first_seen_at / done_at for the timestamp
   const raw = e.ts || e.first_seen_at || e.done_at;
   if (!raw) return "";
   const d = typeof raw === "number" ? new Date(raw * 1000) : new Date(raw);
@@ -12,7 +12,7 @@ function formatWhen(e: EventItem) {
 }
 
 /**
- * Мапінг типів подій для гарного відображення
+ * Mapping event types for display labels
  */
 const TYPE_LABELS: Record<string, string> = {
   duplicate: "Duplicate Blocked",
@@ -27,6 +27,7 @@ const TYPE_LABELS: Record<string, string> = {
 export default function EventsList({ items }: { items: EventItem[] }) {
   return (
     <div style={{ border: "1px solid #eee", borderRadius: 16, overflow: "hidden", background: "white" }}>
+      {/* --- LIST HEADER --- */}
       <div style={{
         padding: "14px 16px",
         borderBottom: "1px solid #eee",
@@ -54,7 +55,7 @@ export default function EventsList({ items }: { items: EventItem[] }) {
         </div>
       ) : (
         items.map((e, idx) => {
-          // Визначаємо чи це AI подія
+          // Determine if this is an AI-related event
           const isAi = !!e.lease_id || e.type.startsWith("ai_");
           const displayType = TYPE_LABELS[e.type] || e.type;
 

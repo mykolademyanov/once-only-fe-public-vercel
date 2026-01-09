@@ -33,7 +33,7 @@ export default function MetricsPage() {
 
   const metrics = useMetrics(fromDay, toDay);
 
-  // Важливо: перевіряємо наявність даних, щоб графік не "ластоножив" при завантаженні
+  // Memoize data to prevent chart flickering during state updates
   const data = useMemo(() => {
     if (!metrics.data) return [];
     return metrics.data;
@@ -66,6 +66,7 @@ export default function MetricsPage() {
         </div>
       </div>
 
+      {/* ERROR HANDLING */}
       {metrics.error?.status === 402 && <UpgradeBanner reason="payment" />}
 
       {/* CHART CONTAINER */}
@@ -78,14 +79,16 @@ export default function MetricsPage() {
         position: "relative",
         minHeight: 450
       }}>
+        {/* LOADING STATE OVERLAY */}
         {metrics.loading && (
-          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "#999", fontSize: 14, fontWeight: 500 }}>
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "#999", fontSize: 14, fontWeight: 500, zIndex: 1 }}>
             Loading charts...
           </div>
         )}
 
+        {/* EMPTY STATE OVERLAY */}
         {isEmpty && (
-          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "#999", fontSize: 14 }}>
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "#999", fontSize: 14, zIndex: 1 }}>
             No data for this period.
           </div>
         )}
@@ -100,7 +103,7 @@ export default function MetricsPage() {
                 tickLine={false}
                 tick={{fontSize: 11, fill: "#999", fontWeight: 500}}
                 dy={12}
-                // Показуємо кожну другу дату, якщо масив великий
+                // Show dates selectively if the dataset is large
                 interval="preserveStartEnd"
               />
               <YAxis
@@ -124,7 +127,7 @@ export default function MetricsPage() {
                 wrapperStyle={{paddingBottom: 30, fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em"}}
               />
 
-              {/* Automation - BLACK */}
+              {/* Automation Traffic - BLACK */}
               <Line
                 name="Automation"
                 type="monotone"
@@ -135,7 +138,7 @@ export default function MetricsPage() {
                 activeDot={{ r: 6, strokeWidth: 0 }}
               />
 
-              {/* AI - INDIGO */}
+              {/* AI Agent Traffic - INDIGO */}
               <Line
                 name="AI Agent Runs"
                 type="monotone"
@@ -146,7 +149,7 @@ export default function MetricsPage() {
                 activeDot={{ r: 6, strokeWidth: 0 }}
               />
 
-              {/* Blocks - DASHED GRAY */}
+              {/* Blocked Duplicates - DASHED GRAY */}
               <Line
                 name="Blocked"
                 type="monotone"
