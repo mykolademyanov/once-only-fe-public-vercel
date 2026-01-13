@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getApiKey, setApiKey } from "@/lib/auth";
 import { apiGet, ApiError } from "@/lib/api";
 
@@ -73,9 +74,18 @@ export default function LoginPage() {
         </button>
       </form>
 
+      <div style={{ marginTop: 16, textAlign: "center" }}>
+        <Link
+          href="/recover"
+          style={{ fontSize: 13, color: "#666", textDecoration: "underline", cursor: "pointer" }}
+        >
+          Forgot API Key?
+        </Link>
+      </div>
+
       {err ? <div style={{ marginTop: 12, color: "#b00020", fontSize: 14 }}>{err}</div> : null}
 
-      <div style={{ marginTop: 16, fontSize: 12, color: "#777" }}>
+      <div style={{ marginTop: 24, fontSize: 12, color: "#777", borderTop: "1px solid #eee", paddingTop: 16 }}>
         Stored in <code>localStorage</code> (MVP). No cookies, no OAuth.
       </div>
     </div>
