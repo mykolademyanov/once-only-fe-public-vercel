@@ -69,3 +69,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 
   return body as T;
 }
+
+export async function getUpgradeUrl(plan: "starter" | "pro" | "agency") {
+  return apiGet<{ url: string }>(`/v1/billing/paypro/checkout-url?plan=${plan}`);
+}

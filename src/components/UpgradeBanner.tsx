@@ -1,44 +1,25 @@
-import { ApiError } from "@/lib/api";
+import { getUpgradeUrl } from "@/lib/api";
 
-export default function UpgradeBanner({ reason }: { reason: "inactive" | "payment" | "rate" | "error"; error?: ApiError }) {
-  const title =
-    reason === "payment"
-      ? "Payment required"
-      : reason === "inactive"
-        ? "Subscription inactive"
-        : reason === "rate"
-          ? "Rate limited"
-          : "Something went wrong";
-
-  const hint =
-    reason === "payment"
-      ? "Your plan needs upgrade or renewal."
-      : reason === "inactive"
-        ? "Your key is valid but the subscription is inactive."
-        : reason === "rate"
-          ? "Too many requests. Retry in a bit."
-          : "Check API base + your key.";
+export default function UpgradeBanner({ reason }: { reason: "inactive" | "payment" }) {
+  async function upgrade(plan: "starter" | "pro" | "agency") {
+    try {
+      const { url } = await getUpgradeUrl(plan);
+      window.location.href = url;
+    } catch (e) {
+      alert("Failed to start checkout");
+    }
+  }
 
   return (
     <div style={{ border: "1px solid #eee", borderRadius: 16, padding: 16, background: "#fafafa" }}>
-      <div style={{ fontWeight: 800 }}>{title}</div>
-      <div style={{ marginTop: 6, color: "#444", fontSize: 14 }}>{hint}</div>
-      <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <a
-          href="https://onceonly.tech"
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "inline-block",
-            border: "1px solid #111",
-            padding: "8px 10px",
-            borderRadius: 12,
-            textDecoration: "none",
-            fontWeight: 700,
-          }}
-        >
-          Upgrade
-        </a>
+      <div style={{ fontWeight: 800 }}>Upgrade required</div>
+      <div style={{ marginTop: 6, color: "#444", fontSize: 14 }}>
+        Your current plan is Free.
+      </div>
+
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+        <button onClick={() => upgrade("starter")}>Upgrade to Starter</button>
+        <button onClick={() => upgrade("pro")}>Upgrade to Pro</button>
       </div>
     </div>
   );
