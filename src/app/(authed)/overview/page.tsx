@@ -22,8 +22,12 @@ export default function OverviewPage() {
   const todayDate = toISODate(new Date());
   const metrics = useMetrics(todayDate, todayDate, refreshKey);
 
+  // Status checks
   const paymentRequired = me.error?.status === 402 || usage.error?.status === 402;
+  const rateLimited = me.error?.status === 429 || usage.error?.status === 429;
   const inactive = me.data ? !me.data.is_active : false;
+  const isFreePlan = me.data?.plan === "free";
+  const showUpgrade = isFreePlan && !paymentRequired && !inactive && !rateLimited;
 
   const today = metrics.data?.[0];
 
@@ -46,9 +50,11 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* --- ALERTS --- */}
+      {/* --- ALERTS & UPGRADE BANNER --- */}
       {paymentRequired && <UpgradeBanner reason="payment" />}
       {!paymentRequired && inactive && <UpgradeBanner reason="inactive" />}
+      {!paymentRequired && !inactive && rateLimited && <UpgradeBanner reason="rate" />}
+      {showUpgrade && <UpgradeBanner reason="upgrade" />}
 
       {/* --- ACCOUNT QUICK INFO --- */}
       <div style={{

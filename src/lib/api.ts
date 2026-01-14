@@ -110,7 +110,6 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function getUpgradeUrl(plan: string) {
-  // apiGet автоматично додасть токен і /api/proxy
   const data = await apiGet<{ url: string }>(`/v1/billing/checkout-url?plan=${encodeURIComponent(plan)}`);
 
   if (!data?.url) throw new Error("Missing checkout url in response");
