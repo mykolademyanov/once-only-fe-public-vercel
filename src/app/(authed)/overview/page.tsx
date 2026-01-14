@@ -26,8 +26,11 @@ export default function OverviewPage() {
   const paymentRequired = me.error?.status === 402 || usage.error?.status === 402;
   const rateLimited = me.error?.status === 429 || usage.error?.status === 429;
   const inactive = me.data ? !me.data.is_active : false;
-  const isFreePlan = me.data?.plan === "free";
-  const showUpgrade = isFreePlan && !paymentRequired && !inactive && !rateLimited;
+  const isFreePlan = (me.data?.plan ?? "free") === "free";
+
+  // show upgrade buttons only when user is on free and not blocked by errors
+  const showUpgradeButtons = isFreePlan && !paymentRequired && !inactive && !rateLimited;
+
 
   const today = metrics.data?.[0];
 
@@ -51,10 +54,10 @@ export default function OverviewPage() {
       </div>
 
       {/* --- ALERTS & UPGRADE BANNER --- */}
-      {paymentRequired && <UpgradeBanner reason="payment" />}
-      {!paymentRequired && inactive && <UpgradeBanner reason="inactive" />}
-      {!paymentRequired && !inactive && rateLimited && <UpgradeBanner reason="rate" />}
-      {showUpgrade && <UpgradeBanner reason="upgrade" />}
+      {paymentRequired && <UpgradeBanner reason="payment" showButtons={false} />}
+      {!paymentRequired && inactive && <UpgradeBanner reason="inactive" showButtons={false} />}
+      {!paymentRequired && !inactive && rateLimited && <UpgradeBanner reason="rate" showButtons={false} />}
+      {showUpgradeButtons && <UpgradeBanner reason="upgrade" showButtons={true} />}
 
       {/* --- ACCOUNT QUICK INFO --- */}
       <div style={{
