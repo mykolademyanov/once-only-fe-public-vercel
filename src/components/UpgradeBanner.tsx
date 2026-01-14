@@ -11,17 +11,30 @@ export default function UpgradeBanner({ reason }: { reason: "inactive" | "paymen
   const [loading, setLoading] = useState<string | null>(null);
 
   /**
-   * Redirects the user to the Stripe checkout URL for the selected plan.
+   * Redirects the user to the Paddle checkout URL for the selected plan in new Tab.
    */
-  async function upgrade(plan: "starter" | "pro") {
+  async function upgrade(plan: "starter" | "pro" | "agency") {
     setLoading(plan);
+
+    // 1. Create a reference to a new blank window immediately to prevent popup blockers
+    const newWindow = window.open("about:blank", "_blank");
+
     try {
-      // Calls the API to get the specific checkout URL for the chosen plan
+      // 2. Fetch the actual URL from your API
       const url = await getUpgradeUrl(plan);
-      window.location.href = url;
+
+      if (newWindow) {
+        // 3. Update the blank window with the real checkout URL
+        newWindow.location.href = url;
+      }
     } catch (e) {
       console.error("Checkout redirect failed:", e);
+
+      // 4. Close the blank window if the API call fails
+      if (newWindow) newWindow.close();
+
       alert("Failed to start checkout. Please try again.");
+    } finally {
       setLoading(null);
     }
   }
@@ -74,10 +87,27 @@ export default function UpgradeBanner({ reason }: { reason: "inactive" | "paymen
             opacity: loading && loading !== "starter" ? 0.5 : 1
           }}
         >
-          {loading === "starter" ? "Redirecting..." : "Starter ($29/mo)"}
+          {loading === "starter" ? "Redirecting..." : "Starter ($9/mo)"}
         </button>
         <button
           onClick={() => upgrade("pro")}
+          disabled={!!loading}
+          style={{
+            cursor: loading ? "default" : "pointer",
+            padding: "10px 20px",
+            borderRadius: 10,
+            border: "1px solid ##3663eb",
+            background: "##3663eb",
+            color: "white",
+            fontWeight: 700,
+            fontSize: 13,
+            opacity: loading && loading !== "pro" ? 0.5 : 1
+          }}
+        >
+          {loading === "pro" ? "Redirecting..." : "Pro ($29/mo)"}
+        </button>
+        <button
+          onClick={() => upgrade("agency")}
           disabled={!!loading}
           style={{
             cursor: loading ? "default" : "pointer",
@@ -91,7 +121,7 @@ export default function UpgradeBanner({ reason }: { reason: "inactive" | "paymen
             opacity: loading && loading !== "pro" ? 0.5 : 1
           }}
         >
-          {loading === "pro" ? "Redirecting..." : "Pro ($99/mo)"}
+          {loading === "pro" ? "Redirecting..." : "Pro ($69/mo)"}
         </button>
       </div>
     </div>
