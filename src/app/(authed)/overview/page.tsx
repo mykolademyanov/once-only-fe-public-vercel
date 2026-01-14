@@ -29,8 +29,8 @@ export default function OverviewPage() {
   const isFreePlan = (me.data?.plan ?? "free") === "free";
 
   // show upgrade buttons only when user is on free and not blocked by errors
-  const showUpgradeButtons = isFreePlan && !paymentRequired && !inactive && !rateLimited;
-
+  const showUpgradeButtons =
+      !me.loading && isFreePlan && !paymentRequired && !inactive && !rateLimited;
 
   const today = metrics.data?.[0];
 
@@ -54,10 +54,21 @@ export default function OverviewPage() {
       </div>
 
       {/* --- ALERTS & UPGRADE BANNER --- */}
-      {paymentRequired && <UpgradeBanner reason="payment" showButtons={false} />}
-      {!paymentRequired && inactive && <UpgradeBanner reason="inactive" showButtons={false} />}
-      {!paymentRequired && !inactive && rateLimited && <UpgradeBanner reason="rate" showButtons={false} />}
-      {showUpgradeButtons && <UpgradeBanner reason="upgrade" showButtons={true} />}
+      {me.loading ? (
+        <div style={{
+          height: 108,
+          background: "#f3f4f6",
+          borderRadius: 16,
+          border: "1px solid #eee"
+        }} />
+      ) : (
+        <>
+          {paymentRequired && <UpgradeBanner reason="payment" showButtons={false} />}
+          {!paymentRequired && inactive && <UpgradeBanner reason="inactive" showButtons={false} />}
+          {!paymentRequired && !inactive && rateLimited && <UpgradeBanner reason="rate" showButtons={false} />}
+          {showUpgradeButtons && <UpgradeBanner reason="upgrade" showButtons={true} />}
+        </>
+      )}
 
       {/* --- ACCOUNT QUICK INFO --- */}
       <div style={{
