@@ -34,6 +34,148 @@ export default function OverviewPage() {
 
   const today = metrics.data?.[0];
 
+  const makeUsageValue = usage.data?.make.usage ?? 0;
+  const aiUsageValue = usage.data?.ai?.charged_total_month ?? usage.data?.ai?.usage ?? 0;
+
+  const showMakeFirst = makeUsageValue > aiUsageValue;
+
+  const automationSection = (
+    <section>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 4, height: 20, background: "#111", borderRadius: 2 }}></div>
+          <h2 style={{ fontSize: 18, fontWeight: 800 }}>Automation Locks (MAKE/ZAPIER)</h2>
+        </div>
+        <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
+          Deduplication stats for webhooks and standard integration workflows.
+        </p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+        {/* Monthly Progress Bar */}
+        <div style={{ gridColumn: "1 / -1", border: "1px solid #eee", borderRadius: 20, padding: 24, background: "white" }}>
+          <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14 }}>Monthly Duplicates Blocked</div>
+          <ProgressBar value={usage.data?.make.usage ?? 0} max={usage.data?.make.limit ?? 1} color="#111" />
+        </div>
+
+        <StatCard
+          label={<InfoTip label="Today's Traffic" description="Total incoming requests processed in the last 24 hours." />}
+          value={today?.checks_total ?? 0}
+          sub="Requests handled"
+        />
+        <StatCard
+          label={<InfoTip label="Duplicates Blocked" description="Total number of executions prevented today because they were identical." />}
+          value={today?.duplicates_blocked ?? 0}
+          color="#059669"
+          sub="Operations saved today"
+        />
+        <StatCard
+          label={<InfoTip label="Cycle Total" description="Total requests processed since the start of your current billing month." />}
+          value={usage.data?.make.requests_total_month ?? 0}
+          sub="Current month usage"
+        />
+        <StatCard
+          label={<InfoTip label="Lifetime Saved" description="Total number of redundant operations blocked since you started." />}
+          value={me.data?.blocked_total_all_time ?? 0}
+          color="#059669"
+          sub="Total value generated"
+        />
+      </div>
+    </section>
+  );
+
+  const aiSection = (
+    <section>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 4, height: 20, background: "#4f46e5", borderRadius: 2 }}></div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#4f46e5" }}>AI Agent Intelligence</h2>
+        </div>
+        <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
+          Charged tasks vs free polling, plus reliability signals.
+        </p>
+      </div>
+
+      {/* AI Metrics Calculation Block */}
+      {(() => {
+        const ai = usage.data?.ai;
+        const charged = ai?.charged_total_month ?? ai?.usage ?? 0;
+        const polling = ai?.polling_total_month ?? 0;
+        const limit = ai?.limit ?? 1;
+        const leaseCalls = ai?.requests_total_month ?? 0;
+        const blocked = ai?.blocked_total_month ?? 0;
+
+        const aiSuccessRate =
+          today?.ai_acquired ? Math.round(((today.ai_completed || 0) / today.ai_acquired) * 100) : 0;
+
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                border: "1px solid #e0e7ff",
+                borderRadius: 20,
+                padding: 24,
+                background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
+              }}
+            >
+              <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#4f46e5" }}>
+                AI Credits Used (Charged)
+              </div>
+              <ProgressBar value={charged} max={limit} color="#4f46e5" />
+              <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
+                Charged: <b>{charged.toLocaleString()}</b> / {limit.toLocaleString()} • Free polling:{" "}
+                <b>{polling.toLocaleString()}</b> • Over-limit blocks: <b>{blocked.toLocaleString()}</b>
+              </div>
+            </div>
+
+            <StatCard
+              label={<InfoTip label="Charged Tasks (Month)" description="How many unique AI runs were billed (acquired leases)." />}
+              value={charged}
+              color="#4f46e5"
+              sub="Billed agent starts"
+            />
+
+            <StatCard
+              label={<InfoTip label="Free Polling (Month)" description="How many /ai/lease calls were free polls on existing keys." />}
+              value={polling}
+              color="#4f46e5"
+              sub="Non-billed status checks"
+            />
+
+            <StatCard
+              label={<InfoTip label="AI Lease Calls (Month)" description="All /ai/lease calls in the month (charged + polling)." />}
+              value={leaseCalls}
+              color="#4f46e5"
+              sub="Total lease requests"
+            />
+
+            <StatCard
+              label={<InfoTip label="AI Tasks (Today)" description="Number of tasks initiated today (acquired leases)." />}
+              value={today?.ai_acquired ?? 0}
+              color="#4f46e5"
+              sub="Today's agent runs"
+            />
+
+            <StatCard
+              label={<InfoTip label="Success Rate" description="Completed vs acquired tasks (today)." />}
+              value={today?.ai_acquired ? `${aiSuccessRate}%` : "—"}
+              color={aiSuccessRate > 90 ? "#059669" : "#4f46e5"}
+              sub="Task reliability"
+            />
+
+            <StatCard
+              label={<InfoTip label="Agent Errors (Today)" description="Tasks that failed today (via /fail or timeout)." />}
+              value={today?.ai_failed ?? 0}
+              color={today?.ai_failed ? "#dc2626" : "#666"}
+              sub="Check logs for errors"
+            />
+          </div>
+        );
+      })()}
+    </section>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32, paddingBottom: 60 }}>
       {/* --- HEADER --- */}
@@ -94,140 +236,17 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* --- SECTION 1: AUTOMATION (MAKE/ZAPIER) --- */}
-      <section>
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 4, height: 20, background: "#111", borderRadius: 2 }}></div>
-            <h2 style={{ fontSize: 18, fontWeight: 800 }}>Automation Locks (MAKE/ZAPIER)</h2>
-          </div>
-          <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
-            Deduplication stats for webhooks and standard integration workflows.
-          </p>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-          {/* Monthly Progress Bar */}
-          <div style={{ gridColumn: "1 / -1", border: "1px solid #eee", borderRadius: 20, padding: 24, background: "white" }}>
-            <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14 }}>Monthly Duplicates Blocked</div>
-            <ProgressBar value={usage.data?.make.usage ?? 0} max={usage.data?.make.limit ?? 1} color="#111" />
-          </div>
-
-          <StatCard
-            label={<InfoTip label="Today's Traffic" description="Total incoming requests processed in the last 24 hours." />}
-            value={today?.checks_total ?? 0}
-            sub="Requests handled"
-          />
-          <StatCard
-            label={<InfoTip label="Duplicates Blocked" description="Total number of executions prevented today because they were identical." />}
-            value={today?.duplicates_blocked ?? 0}
-            color="#059669"
-            sub="Operations saved today"
-          />
-          <StatCard
-            label={<InfoTip label="Cycle Total" description="Total requests processed since the start of your current billing month." />}
-            value={usage.data?.make.requests_total_month ?? 0}
-            sub="Current month usage"
-          />
-          <StatCard
-            label={<InfoTip label="Lifetime Saved" description="Total number of redundant operations blocked since you started." />}
-            value={me.data?.blocked_total_all_time ?? 0}
-            color="#059669"
-            sub="Total value generated"
-          />
-        </div>
-      </section>
-
-      {/* --- SECTION 2: AI AGENTS --- */}
-      <section>
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 4, height: 20, background: "#4f46e5", borderRadius: 2 }}></div>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: "#4f46e5" }}>AI Agent Intelligence</h2>
-          </div>
-          <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
-            Charged tasks vs free polling, plus reliability signals.
-          </p>
-        </div>
-
-        {/* AI Metrics Calculation Block */}
-        {(() => {
-          const ai = usage.data?.ai;
-          const charged = ai?.charged_total_month ?? ai?.usage ?? 0;
-          const polling = ai?.polling_total_month ?? 0;
-          const limit = ai?.limit ?? 1;
-          const leaseCalls = ai?.requests_total_month ?? 0;
-          const blocked = ai?.blocked_total_month ?? 0;
-
-          const aiSuccessRate =
-            today?.ai_acquired ? Math.round(((today.ai_completed || 0) / today.ai_acquired) * 100) : 0;
-
-          return (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-              <div
-                style={{
-                  gridColumn: "1 / -1",
-                  border: "1px solid #e0e7ff",
-                  borderRadius: 20,
-                  padding: 24,
-                  background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
-                }}
-              >
-                <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#4f46e5" }}>
-                  AI Credits Used (Charged)
-                </div>
-                <ProgressBar value={charged} max={limit} color="#4f46e5" />
-                <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
-                  Charged: <b>{charged.toLocaleString()}</b> / {limit.toLocaleString()} • Free polling:{" "}
-                  <b>{polling.toLocaleString()}</b> • Over-limit blocks: <b>{blocked.toLocaleString()}</b>
-                </div>
-              </div>
-
-              <StatCard
-                label={<InfoTip label="Charged Tasks (Month)" description="How many unique AI runs were billed (acquired leases)." />}
-                value={charged}
-                color="#4f46e5"
-                sub="Billed agent starts"
-              />
-
-              <StatCard
-                label={<InfoTip label="Free Polling (Month)" description="How many /ai/lease calls were free polls on existing keys." />}
-                value={polling}
-                color="#4f46e5"
-                sub="Non-billed status checks"
-              />
-
-              <StatCard
-                label={<InfoTip label="AI Lease Calls (Month)" description="All /ai/lease calls in the month (charged + polling)." />}
-                value={leaseCalls}
-                color="#4f46e5"
-                sub="Total lease requests"
-              />
-
-              <StatCard
-                label={<InfoTip label="AI Tasks (Today)" description="Number of tasks initiated today (acquired leases)." />}
-                value={today?.ai_acquired ?? 0}
-                color="#4f46e5"
-                sub="Today's agent runs"
-              />
-
-              <StatCard
-                label={<InfoTip label="Success Rate" description="Completed vs acquired tasks (today)." />}
-                value={today?.ai_acquired ? `${aiSuccessRate}%` : "—"}
-                color={aiSuccessRate > 90 ? "#059669" : "#4f46e5"}
-                sub="Task reliability"
-              />
-
-              <StatCard
-                label={<InfoTip label="Agent Errors (Today)" description="Tasks that failed today (via /fail or timeout)." />}
-                value={today?.ai_failed ?? 0}
-                color={today?.ai_failed ? "#dc2626" : "#666"}
-                sub="Check logs for errors"
-              />
-            </div>
-          );
-        })()}
-      </section>
+      {showMakeFirst ? (
+        <>
+          {automationSection}
+          {aiSection}
+        </>
+      ) : (
+        <>
+          {aiSection}
+          {automationSection}
+        </>
+      )}
 
       {/* --- FOOTER ANALYTICS --- */}
       <div style={{
