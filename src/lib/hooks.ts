@@ -85,7 +85,7 @@ export type ToolCreatePayload = {
   scope_id?: string;
   auth: {
     type: "hmac_sha256";
-    secret: string;
+    secret?: string;
   };
   timeout_ms?: number;
   max_retries?: number;
@@ -246,23 +246,17 @@ export function useToolsGroupedByScope(refreshKey = 0) {
   useEffect(() => {
     let alive = true;
 
-    // First fetch from global scope
-    apiGet<ToolListItem[]>("/v1/tools?scope_id=global")
-      .then(async (globalTools) => {
+    // Fetch all tools across scopes
+    apiGet<ToolListItem[]>("/v1/tools?scope_id=all")
+      .then(async (allTools) => {
         if (!alive) return;
 
-        const grouped: Record<string, ToolListItem[]> = {
-          global: globalTools,
-        };
+        const grouped: Record<string, ToolListItem[]> = {};
 
-        // Group tools by their scope_id
-        globalTools.forEach(tool => {
-          if (tool.scope_id !== "global") {
-            if (!grouped[tool.scope_id]) {
-              grouped[tool.scope_id] = [];
-            }
-            grouped[tool.scope_id].push(tool);
-          }
+        allTools.forEach(tool => {
+          const scopeId = tool.scope_id || "global";
+          if (!grouped[scopeId]) grouped[scopeId] = [];
+          grouped[scopeId].push(tool);
         });
 
         setSt({ data: grouped, loading: false, error: null });

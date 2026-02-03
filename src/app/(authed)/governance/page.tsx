@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMe, useToolsGroupedByScope, ToolListItem } from "@/lib/hooks";
-import { upsertTool, deleteTool, toggleTool, upsertPolicy, getPolicy, listPolicies } from "@/lib/gov-api-client";
+import { upsertTool, deleteTool, toggleTool, upsertPolicy, getPolicy, listPolicies, createPolicyFromTemplate } from "@/lib/gov-api-client";
 
 export default function GovPage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -20,6 +20,9 @@ export default function GovPage() {
     max_actions_per_hour: 0,
     max_spend_usd_per_day: 0,
   });
+  const [policyTemplate, setPolicyTemplate] = useState<
+    "custom" | "strict" | "moderate" | "permissive" | "read_only" | "support_bot"
+  >("custom");
   const [policyLoading, setPolicyLoading] = useState(false);
   const [policyError, setPolicyError] = useState("");
 
@@ -302,6 +305,7 @@ export default function GovPage() {
               max_actions_per_hour: 0,
               max_spend_usd_per_day: 0,
             });
+            setPolicyTemplate("custom");
             setShowPolicyModal(true);
           }}
           style={{
@@ -643,6 +647,8 @@ export default function GovPage() {
           formData={policyFormData}
           onFormDataChange={setPolicyFormData}
           allTools={allTools}
+          template={policyTemplate}
+          onTemplateChange={setPolicyTemplate}
           loading={policyLoading}
           error={policyError}
           onClose={() => setShowPolicyModal(false)}
@@ -650,13 +656,21 @@ export default function GovPage() {
             setPolicyLoading(true);
             setPolicyError("");
             try {
-              await upsertPolicy(agentId, {
-                agent_id: agentId,
+              const overrides = {
                 allowed_tools: policyFormData.allowed_tools.length > 0 ? policyFormData.allowed_tools : undefined,
                 blocked_tools: policyFormData.blocked_tools.length > 0 ? policyFormData.blocked_tools : undefined,
                 max_actions_per_hour: policyFormData.max_actions_per_hour > 0 ? policyFormData.max_actions_per_hour : undefined,
                 max_spend_usd_per_day: policyFormData.max_spend_usd_per_day > 0 ? policyFormData.max_spend_usd_per_day : undefined,
-              });
+              };
+
+              if (policyTemplate !== "custom") {
+                await createPolicyFromTemplate(agentId, policyTemplate, overrides);
+              } else {
+                await upsertPolicy(agentId, {
+                  agent_id: agentId,
+                  ...overrides,
+                });
+              }
               setShowPolicyModal(false);
               alert("Policy created/updated successfully!");
               setRefreshKey(x => x + 1);
@@ -1043,7 +1057,8 @@ function EditToolModal({
     timeout_ms: tool.timeout_ms,
     max_retries: tool.max_retries,
     enabled: tool.enabled,
-    description: tool.description || ""
+    description: tool.description || "",
+    secret: ""
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1060,7 +1075,7 @@ function EditToolModal({
         scope_id: tool.scope_id,
         auth: {
           type: "hmac_sha256",
-          secret: ""
+          secret: formData.secret.trim() || undefined
         },
         timeout_ms: formData.timeout_ms,
         max_retries: formData.max_retries,
@@ -1128,6 +1143,14 @@ function EditToolModal({
           as="textarea"
         />
 
+        <FormField
+          label="HMAC Secret (leave blank to keep current)"
+          value={formData.secret}
+          onChange={(secret) => setFormData({ ...formData, secret })}
+          type="password"
+          placeholder="Leave empty to keep existing secret"
+        />
+
         <div style={{ display: "flex", gap: 8 }}>
           <button
             type="submit"
@@ -1174,6 +1197,8 @@ function CreatePolicyModal({
   formData,
   onFormDataChange,
   allTools,
+  template,
+  onTemplateChange,
   loading,
   error,
   onClose,
@@ -1184,6 +1209,8 @@ function CreatePolicyModal({
   formData: any;
   onFormDataChange: (value: any) => void;
   allTools: ToolListItem[];
+  template: "custom" | "strict" | "moderate" | "permissive" | "read_only" | "support_bot";
+  onTemplateChange: (value: "custom" | "strict" | "moderate" | "permissive" | "read_only" | "support_bot") => void;
   loading: boolean;
   error: string;
   onClose: () => void;
@@ -1212,6 +1239,34 @@ function CreatePolicyModal({
           placeholder="e.g., agent_123"
           required
         />
+
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            Template
+          </label>
+          <select
+            value={template}
+            onChange={(e) => onTemplateChange(e.target.value as any)}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              fontSize: 13,
+              background: "white",
+            }}
+          >
+            <option value="custom">Custom (no template)</option>
+            <option value="strict">Strict</option>
+            <option value="moderate">Moderate</option>
+            <option value="permissive">Permissive</option>
+            <option value="read_only">Read Only</option>
+            <option value="support_bot">Support Bot</option>
+          </select>
+          <div style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
+            Selecting a template will apply default limits. You can still add overrides below.
+          </div>
+        </div>
 
         <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>

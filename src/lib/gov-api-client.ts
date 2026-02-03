@@ -37,7 +37,7 @@ export async function upsertTool(payload: ToolCreatePayload): Promise<ToolResp> 
     scope_id: payload.scope_id || "global",
     auth: {
       type: "hmac_sha256" as const,
-      secret: payload.auth.secret
+      secret: payload.auth.secret || undefined
     }
   };
 
