@@ -45,9 +45,9 @@ export default function GovPage() {
   // Show content only for pro/agency plans
   const showContent = !me.loading && isPro && !paymentRequired && !inactive && !rateLimited;
 
-  // Auto-refresh data every 10 seconds
+  // Auto-refresh data every 45 seconds
   useEffect(() => {
-    const id = window.setInterval(() => setRefreshKey((x) => x + 1), 10_000);
+    const id = window.setInterval(() => setRefreshKey((x) => x + 1), 45_000);
     return () => window.clearInterval(id);
   }, []);
 
