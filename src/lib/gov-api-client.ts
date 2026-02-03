@@ -15,9 +15,8 @@ export async function getTool(
   toolName: string,
   scopeId: string = "global"
 ): Promise<ToolResp> {
-  return apiPost<ToolResp>(
-    `/v1/tools/${encodeURIComponent(toolName)}?scope_id=${encodeURIComponent(scopeId)}`,
-    {}
+  return apiGet<ToolResp>(
+    `/v1/tools/${encodeURIComponent(toolName)}?scope_id=${encodeURIComponent(scopeId)}`
   );
 }
 
