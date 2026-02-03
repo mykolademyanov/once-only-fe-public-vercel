@@ -80,6 +80,13 @@ export async function getPolicy(agentId: string): Promise<PolicyResp> {
 }
 
 /**
+ * List all policies for the user
+ */
+export async function listPolicies(): Promise<PolicyResp[]> {
+  return apiGet<PolicyResp[]>(`/v1/policies`);
+}
+
+/**
  * Create or update agent policy
  */
 export async function upsertPolicy(

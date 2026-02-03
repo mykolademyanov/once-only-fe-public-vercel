@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMe, useToolsGroupedByScope, ToolListItem } from "@/lib/hooks";
-import { upsertTool, deleteTool, toggleTool, upsertPolicy, getPolicy } from "@/lib/gov-api-client";
+import { upsertTool, deleteTool, toggleTool, upsertPolicy, getPolicy, listPolicies } from "@/lib/gov-api-client";
 
 export default function GovPage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -28,11 +28,10 @@ export default function GovPage() {
   const [loadingPolicy, setLoadingPolicy] = useState(false);
   const [searchAgentId, setSearchAgentId] = useState("");
 
-  // Auto-refresh data every 10 seconds
-  useEffect(() => {
-    const id = window.setInterval(() => setRefreshKey((x) => x + 1), 10_000);
-    return () => window.clearInterval(id);
-  }, []);
+  // Policies list state
+  const [policiesList, setPoliciesList] = useState<any[]>([]);
+  const [loadingPoliciesList, setLoadingPoliciesList] = useState(false);
+  const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
 
   const me = useMe(refreshKey);
   const toolsGrouped = useToolsGroupedByScope(refreshKey);
@@ -45,6 +44,31 @@ export default function GovPage() {
 
   // Show content only for pro/agency plans
   const showContent = !me.loading && isPro && !paymentRequired && !inactive && !rateLimited;
+
+  // Auto-refresh data every 10 seconds
+  useEffect(() => {
+    const id = window.setInterval(() => setRefreshKey((x) => x + 1), 10_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Load all policies when tab is active
+  useEffect(() => {
+    if (activeTab === "policies" && showContent) {
+      const loadAllPolicies = async () => {
+        setLoadingPoliciesList(true);
+        try {
+          const policies = await listPolicies();
+          setPoliciesList(policies || []);
+        } catch (err: any) {
+          console.error("Failed to load policies:", err);
+          setPoliciesList([]);
+        } finally {
+          setLoadingPoliciesList(false);
+        }
+      };
+      loadAllPolicies();
+    }
+  }, [activeTab, showContent, refreshKey]);
 
   const handleToolCreated = () => {
     setShowCreateModal(false);
@@ -266,7 +290,7 @@ export default function GovPage() {
             <h2 style={{ fontSize: 18, fontWeight: 800, color: "#4f46e5" }}>Agent Policies</h2>
           </div>
           <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
-            Define governance rules and tool access controls for your agents.
+            View and manage governance rules for all your agents.
           </p>
         </div>
         <button
@@ -295,219 +319,27 @@ export default function GovPage() {
         </button>
       </div>
 
-      {/* Search existing policy */}
-      <div style={{
-        padding: 20,
-        background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
-        borderRadius: 12,
-        border: "1px solid #e0e7ff",
-        marginBottom: 24
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#4f46e5", marginBottom: 12 }}>
-          📋 View Existing Policy
-        </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
-            type="text"
-            placeholder="Enter agent ID (e.g., agent_123)"
-            value={searchAgentId}
-            onChange={(e) => setSearchAgentId(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === "Enter") {
-                loadPolicy(searchAgentId);
-              }
-            }}
-            style={{
-              flex: 1,
-              padding: "10px 12px",
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              fontSize: 13,
-            }}
-          />
-          <button
-            onClick={() => loadPolicy(searchAgentId)}
-            disabled={loadingPolicy || !searchAgentId}
-            style={{
-              padding: "10px 16px",
-              background: "#4f46e5",
-              color: "white",
-              border: "none",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: loadingPolicy ? "not-allowed" : "pointer",
-              opacity: loadingPolicy || !searchAgentId ? 0.6 : 1
-            }}>
-            {loadingPolicy ? "Loading..." : "Search"}
-          </button>
-        </div>
-      </div>
-
-      {/* Display current policy */}
-      {currentPolicy && (
+      {loadingPoliciesList ? (
         <div style={{
-          padding: 20,
-          background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
-          borderRadius: 12,
-          border: "2px solid #4f46e5",
-          marginBottom: 24
+          padding: 32,
+          textAlign: "center",
+          color: "#666"
         }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#4f46e5", marginBottom: 16 }}>
-            ✅ Policy Found: <span style={{ fontFamily: "monospace", color: "#111" }}>{currentPolicy.agent_id}</span>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-            {/* Allowed Tools */}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#666", marginBottom: 8, textTransform: "uppercase" }}>
-                ✓ Allowed Tools
-              </div>
-              {currentPolicy.policy?.allowed_tools?.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {currentPolicy.policy.allowed_tools.map((tool: string) => (
-                    <div
-                      key={tool}
-                      style={{
-                        padding: "6px 10px",
-                        background: "#d1fae5",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        color: "#065f46",
-                        fontWeight: 600
-                      }}
-                    >
-                      {tool}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: "#999", fontStyle: "italic" }}>No restrictions</div>
-              )}
-            </div>
-
-            {/* Blocked Tools */}
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#666", marginBottom: 8, textTransform: "uppercase" }}>
-                ✗ Blocked Tools
-              </div>
-              {currentPolicy.policy?.blocked_tools?.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {currentPolicy.policy.blocked_tools.map((tool: string) => (
-                    <div
-                      key={tool}
-                      style={{
-                        padding: "6px 10px",
-                        background: "#fee2e2",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        color: "#991b1b",
-                        fontWeight: 600
-                      }}
-                    >
-                      {tool}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: "#999", fontStyle: "italic" }}>None blocked</div>
-              )}
-            </div>
-          </div>
-
-          {/* Limits */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16,
-            padding: "12px 0",
-            borderTop: "1px solid #e0e7ff",
-            marginBottom: 16
-          }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#666", marginBottom: 4 }}>
-                Max Actions Per Hour
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#111" }}>
-                {currentPolicy.policy?.max_actions_per_hour ? `${currentPolicy.policy.max_actions_per_hour.toLocaleString()}` : "—"}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#666", marginBottom: 4 }}>
-                Max Spend Per Day
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#111" }}>
-                ${(currentPolicy.policy?.max_spend_usd_per_day || 0).toFixed(2)}
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => {
-                setAgentId(currentPolicy.agent_id);
-                setPolicyFormData({
-                  allowed_tools: currentPolicy.policy?.allowed_tools || [],
-                  blocked_tools: currentPolicy.policy?.blocked_tools || [],
-                  max_actions_per_hour: currentPolicy.policy?.max_actions_per_hour || 0,
-                  max_spend_usd_per_day: currentPolicy.policy?.max_spend_usd_per_day || 0,
-                });
-                setShowPolicyModal(true);
-              }}
-              style={{
-                padding: "8px 16px",
-                background: "#fef3c7",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#92400e",
-                cursor: "pointer",
-                transition: "opacity 0.2s"
-              }} onMouseOver={(e) => { (e.target as HTMLButtonElement).style.opacity = "0.8"; }} onMouseOut={(e) => { (e.target as HTMLButtonElement).style.opacity = "1"; }}>
-              ✏️ Edit Policy
-            </button>
-            <button
-              onClick={() => {
-                setCurrentPolicy(null);
-                setSearchAgentId("");
-              }}
-              style={{
-                padding: "8px 16px",
-                background: "#f3f4f6",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#666",
-                cursor: "pointer"
-              }}>
-              Clear
-            </button>
-          </div>
+          Loading policies...
         </div>
-      )}
-
-      {/* Empty state */}
-      {!loadingPolicy && !currentPolicy && (
+      ) : policiesList.length === 0 ? (
         <div style={{
-          padding: 24,
+          padding: 32,
           background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
           borderRadius: 12,
           border: "1px solid #e0e7ff",
           textAlign: "center"
         }}>
           <div style={{ fontSize: 14, color: "#666", marginBottom: 16 }}>
-            Create a new policy to manage tool access and spending limits for your agents.
+            No policies created yet.
           </div>
-
           <button
-            onClick={() => {
-              setAgentId("");
-              setShowPolicyModal(true);
-            }}
+            onClick={() => setShowPolicyModal(true)}
             style={{
               padding: "10px 16px",
               background: "#4f46e5",
@@ -520,6 +352,179 @@ export default function GovPage() {
             }}>
             Create Your First Policy
           </button>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          {/* All Agents List */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#666", textTransform: "uppercase", marginBottom: 12 }}>
+              All Agents ({policiesList.length})
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {policiesList.map((p) => (
+                <button
+                  key={p.agent_id}
+                  onClick={() => setSelectedPolicy(p)}
+                  style={{
+                    padding: 12,
+                    background: selectedPolicy?.agent_id === p.agent_id ? "#4f46e5" : "#f3f4f6",
+                    color: selectedPolicy?.agent_id === p.agent_id ? "white" : "#111",
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "all 0.2s"
+                  }}>
+                  <div style={{ fontFamily: "monospace", fontSize: 12 }}>
+                    {p.agent_id}
+                  </div>
+                  <div style={{ fontSize: 11, opacity: 0.8, marginTop: 4 }}>
+                    Tools: {(p.policy?.allowed_tools?.length || 0) + (p.policy?.blocked_tools?.length || 0)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Policy Details */}
+          {selectedPolicy ? (
+            <div style={{
+              padding: 20,
+              background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
+              borderRadius: 12,
+              border: "2px solid #4f46e5"
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#4f46e5", marginBottom: 16 }}>
+                Policy Details: <span style={{ fontFamily: "monospace", color: "#111" }}>{selectedPolicy.agent_id}</span>
+              </div>
+
+              {/* Allowed Tools */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#666", marginBottom: 8, textTransform: "uppercase" }}>
+                  ✓ Allowed Tools ({selectedPolicy.policy?.allowed_tools?.length || 0})
+                </div>
+                {selectedPolicy.policy?.allowed_tools?.length > 0 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {selectedPolicy.policy.allowed_tools.map((tool: string) => (
+                      <div
+                        key={tool}
+                        style={{
+                          padding: "6px 10px",
+                          background: "#d1fae5",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          color: "#065f46",
+                          fontWeight: 600
+                        }}
+                      >
+                        {tool}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#999", fontStyle: "italic" }}>No restrictions</div>
+                )}
+              </div>
+
+              {/* Blocked Tools */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#666", marginBottom: 8, textTransform: "uppercase" }}>
+                  ✗ Blocked Tools ({selectedPolicy.policy?.blocked_tools?.length || 0})
+                </div>
+                {selectedPolicy.policy?.blocked_tools?.length > 0 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {selectedPolicy.policy.blocked_tools.map((tool: string) => (
+                      <div
+                        key={tool}
+                        style={{
+                          padding: "6px 10px",
+                          background: "#fee2e2",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          color: "#991b1b",
+                          fontWeight: 600
+                        }}
+                      >
+                        {tool}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#999", fontStyle: "italic" }}>None</div>
+                )}
+              </div>
+
+              {/* Limits */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                padding: "12px 0",
+                borderTop: "1px solid #e0e7ff",
+                borderBottom: "1px solid #e0e7ff",
+                marginBottom: 16
+              }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#666", marginBottom: 4 }}>
+                    Max Actions/Hour
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>
+                    {selectedPolicy.policy?.max_actions_per_hour || "—"}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#666", marginBottom: 4 }}>
+                    Max Spend/Day
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>
+                    ${(selectedPolicy.policy?.max_spend_usd_per_day || 0).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => {
+                    setAgentId(selectedPolicy.agent_id);
+                    setPolicyFormData({
+                      allowed_tools: selectedPolicy.policy?.allowed_tools || [],
+                      blocked_tools: selectedPolicy.policy?.blocked_tools || [],
+                      max_actions_per_hour: selectedPolicy.policy?.max_actions_per_hour || 0,
+                      max_spend_usd_per_day: selectedPolicy.policy?.max_spend_usd_per_day || 0,
+                    });
+                    setShowPolicyModal(true);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    background: "#fef3c7",
+                    border: "none",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#92400e",
+                    cursor: "pointer"
+                  }}>
+                  ✏️ Edit
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              padding: 20,
+              background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
+              borderRadius: 12,
+              border: "1px dashed #e0e7ff",
+              textAlign: "center",
+              color: "#666"
+            }}>
+              Select an agent to view policy details
+            </div>
+          )}
         </div>
       )}
     </section>
