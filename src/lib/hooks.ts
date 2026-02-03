@@ -63,6 +63,69 @@ export type MetricsRow = {
   ai_failed?: number;
 };
 
+// Tools & Policies
+export type ToolListItem = {
+  name: string;
+  scope_id: string;
+  url: string;
+  enabled: boolean;
+  timeout_ms: number;
+  max_retries: number;
+  description?: string | null;
+  has_secret: boolean;
+  secret_id?: string | null;
+  secret_mask?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ToolCreatePayload = {
+  name: string;
+  url: string;
+  scope_id?: string;
+  auth: {
+    type: "hmac_sha256";
+    secret: string;
+  };
+  timeout_ms?: number;
+  max_retries?: number;
+  enabled?: boolean;
+  description?: string;
+};
+
+export type ToolResp = {
+  name: string;
+  url: string;
+  scope_id: string;
+  enabled: boolean;
+  timeout_ms: number;
+  max_retries: number;
+  description?: string | null;
+  has_secret: boolean;
+  secret_id?: string | null;
+  secret_mask?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type PolicyResp = {
+  agent_id: string;
+  policy: Record<string, any>;
+};
+
+export type PolicyUpsertPayload = {
+  agent_id: string;
+  max_actions_per_hour?: number;
+  max_spend_usd_per_day?: number;
+  max_calls_per_tool?: Record<string, number>;
+  allowed_tools?: string[];
+  blocked_tools?: string[];
+  pricing_rules?: Array<{
+    tool: string;
+    price_usd: number;
+  }>;
+};
+
 type State<T> = {
   data: T | null;
   loading: boolean;
@@ -153,6 +216,77 @@ export function useMetrics(fromDay: string, toDay: string, refreshKey = 0) {
       .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));
     return () => { alive = false; };
   }, [fromDay, toDay, refreshKey]);
+
+  return st;
+}
+
+// ==================== TOOLS HOOKS ====================
+
+export function useToolsList(scopeId = "global", refreshKey = 0) {
+  const [st, setSt] = useState<State<ToolListItem[]>>({ data: null, loading: true, error: null });
+
+  useEffect(() => {
+    let alive = true;
+    apiGet<ToolListItem[]>(`/v1/tools?scope_id=${encodeURIComponent(scopeId)}`)
+      .then((data) => alive && setSt({ data, loading: false, error: null }))
+      .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));
+    return () => { alive = false; };
+  }, [scopeId, refreshKey]);
+
+  return st;
+}
+
+export function useToolsGroupedByScope(refreshKey = 0) {
+  const [st, setSt] = useState<State<Record<string, ToolListItem[]>>>({
+    data: null,
+    loading: true,
+    error: null
+  });
+
+  useEffect(() => {
+    let alive = true;
+
+    // First fetch from global scope
+    apiGet<ToolListItem[]>("/v1/tools?scope_id=global")
+      .then(async (globalTools) => {
+        if (!alive) return;
+
+        const grouped: Record<string, ToolListItem[]> = {
+          global: globalTools,
+        };
+
+        // Group tools by their scope_id
+        globalTools.forEach(tool => {
+          if (tool.scope_id !== "global") {
+            if (!grouped[tool.scope_id]) {
+              grouped[tool.scope_id] = [];
+            }
+            grouped[tool.scope_id].push(tool);
+          }
+        });
+
+        setSt({ data: grouped, loading: false, error: null });
+      })
+      .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));
+
+    return () => { alive = false; };
+  }, [refreshKey]);
+
+  return st;
+}
+
+// ==================== POLICIES HOOKS ====================
+
+export function usePolicy(agentId: string, refreshKey = 0) {
+  const [st, setSt] = useState<State<PolicyResp>>({ data: null, loading: true, error: null });
+
+  useEffect(() => {
+    let alive = true;
+    apiGet<PolicyResp>(`/v1/policies/${encodeURIComponent(agentId)}`)
+      .then((data) => alive && setSt({ data, loading: false, error: null }))
+      .catch((e) => alive && setSt({ data: null, loading: false, error: normalizeApiError(e) }));
+    return () => { alive = false; };
+  }, [agentId, refreshKey]);
 
   return st;
 }

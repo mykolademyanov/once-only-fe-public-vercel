@@ -109,6 +109,51 @@ export async function apiGet<T>(path: string): Promise<T> {
   return body as T;
 }
 
+export async function apiDelete<T = unknown>(path: string): Promise<T> {
+  if (!API_BASE) throw new Error("Missing NEXT_PUBLIC_API_BASE");
+
+  const key = getApiKey();
+  if (!key) throw new ApiError(401, "UNAUTHORIZED", "Missing API key");
+
+  const res = await fetch(`/api/proxy${path}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  let body: unknown = undefined;
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    try {
+      body = await res.json();
+    } catch {
+      body = undefined;
+    }
+  } else {
+    try {
+      body = await res.text();
+    } catch {
+      body = undefined;
+    }
+  }
+
+  if (!res.ok) {
+    const code = inferCode(res.status);
+
+    // UX: auto-logout on 401
+    if (res.status === 401 && typeof window !== "undefined") {
+      clearApiKey();
+    }
+
+    throw new ApiError(res.status, code, `API error ${res.status} on ${path}`, body);
+  }
+
+  return body as T;
+}
+
 export async function getUpgradeUrl(plan: string) {
   const data = await apiGet<{ url: string }>(`/v1/billing/checkout-url?plan=${encodeURIComponent(plan)}`);
 
