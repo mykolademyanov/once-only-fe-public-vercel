@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMe, useToolsGroupedByScope, ToolListItem } from "@/lib/hooks";
-import { upsertTool, deleteTool, toggleTool } from "@/lib/gov-api-client";
+import { upsertTool, deleteTool, toggleTool, upsertPolicy } from "@/lib/gov-api-client";
 
 export default function GovPage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -10,6 +10,18 @@ export default function GovPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTool, setEditingTool] = useState<ToolListItem | null>(null);
   const [globalError, setGlobalError] = useState("");
+
+  // Policies state
+  const [agentId, setAgentId] = useState("");
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [policyFormData, setPolicyFormData] = useState({
+    allowed_tools: [] as string[],
+    blocked_tools: [] as string[],
+    max_actions_per_hour: 0,
+    max_spend_usd_per_day: 0,
+  });
+  const [policyLoading, setPolicyLoading] = useState(false);
+  const [policyError, setPolicyError] = useState("");
 
   // Auto-refresh data every 10 seconds
   useEffect(() => {
@@ -40,6 +52,9 @@ export default function GovPage() {
     setRefreshKey(x => x + 1);
     setGlobalError("");
   };
+
+  // Get all tools for policy selection
+  const allTools = Object.values(toolsGrouped.data || {}).flat();
 
   const toolsSection = (
     <section>
@@ -225,29 +240,66 @@ export default function GovPage() {
 
   const policiesSection = (
     <section>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 4, height: 20, background: "#4f46e5", borderRadius: 2 }}></div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#4f46e5" }}>Agent Policies</h2>
+      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 4, height: 20, background: "#4f46e5", borderRadius: 2 }}></div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: "#4f46e5" }}>Agent Policies</h2>
+          </div>
+          <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
+            Define governance rules and tool access controls for your agents.
+          </p>
         </div>
-        <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
-          Define governance rules and tool access controls for your agents.
-        </p>
+        <button
+          onClick={() => {
+            setAgentId("");
+            setPolicyFormData({
+              allowed_tools: [],
+              blocked_tools: [],
+              max_actions_per_hour: 0,
+              max_spend_usd_per_day: 0,
+            });
+            setShowPolicyModal(true);
+          }}
+          style={{
+            padding: "10px 16px",
+            background: "#4f46e5",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "background 0.2s"
+          }} onMouseOver={(e) => { (e.target as HTMLButtonElement).style.background = "#4338ca"; }} onMouseOut={(e) => { (e.target as HTMLButtonElement).style.background = "#4f46e5"; }}>
+          + Create Policy
+        </button>
       </div>
 
       <div style={{
         padding: 24,
         background: "linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)",
         borderRadius: 12,
-        border: "1px solid #e0e7ff",
-        textAlign: "center"
+        border: "1px solid #e0e7ff"
       }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#666", marginBottom: 8 }}>
-          Policy management coming soon
+        <div style={{ fontSize: 14, color: "#666", marginBottom: 16 }}>
+          Create a policy by specifying an Agent ID and configuring allowed/blocked tools and spending limits.
         </div>
-        <div style={{ fontSize: 13, color: "#999" }}>
-          Create and update agent policies via the API
-        </div>
+
+        <button
+          onClick={() => setShowPolicyModal(true)}
+          style={{
+            padding: "10px 16px",
+            background: "#4f46e5",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer"
+          }}>
+          Create Your First Policy
+        </button>
       </div>
     </section>
   );
@@ -356,6 +408,40 @@ export default function GovPage() {
           onClose={() => setEditingTool(null)}
           onSuccess={handleToolUpdated}
           onError={(msg) => setGlobalError(msg)}
+        />
+      )}
+
+      {showPolicyModal && (
+        <CreatePolicyModal
+          agentId={agentId}
+          onAgentIdChange={setAgentId}
+          formData={policyFormData}
+          onFormDataChange={setPolicyFormData}
+          allTools={allTools}
+          loading={policyLoading}
+          error={policyError}
+          onClose={() => setShowPolicyModal(false)}
+          onSubmit={async () => {
+            setPolicyLoading(true);
+            setPolicyError("");
+            try {
+              await upsertPolicy(agentId, {
+                agent_id: agentId,
+                allowed_tools: policyFormData.allowed_tools.length > 0 ? policyFormData.allowed_tools : undefined,
+                blocked_tools: policyFormData.blocked_tools.length > 0 ? policyFormData.blocked_tools : undefined,
+                max_actions_per_hour: policyFormData.max_actions_per_hour > 0 ? policyFormData.max_actions_per_hour : undefined,
+                max_spend_usd_per_day: policyFormData.max_spend_usd_per_day > 0 ? policyFormData.max_spend_usd_per_day : undefined,
+              });
+              setShowPolicyModal(false);
+              alert("Policy created/updated successfully!");
+              setRefreshKey(x => x + 1);
+            } catch (err: any) {
+              const message = err.details?.message || err.message || "Failed to create policy";
+              setPolicyError(message);
+            } finally {
+              setPolicyLoading(false);
+            }
+          }}
         />
       )}
     </div>
@@ -749,7 +835,7 @@ function EditToolModal({
         scope_id: tool.scope_id,
         auth: {
           type: "hmac_sha256",
-          secret: "" // Can't update secret via upsert
+          secret: ""
         },
         timeout_ms: formData.timeout_ms,
         max_retries: formData.max_retries,
@@ -853,6 +939,178 @@ function EditToolModal({
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function CreatePolicyModal({
+  agentId,
+  onAgentIdChange,
+  formData,
+  onFormDataChange,
+  allTools,
+  loading,
+  error,
+  onClose,
+  onSubmit
+}: {
+  agentId: string;
+  onAgentIdChange: (value: string) => void;
+  formData: any;
+  onFormDataChange: (value: any) => void;
+  allTools: ToolListItem[];
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+  onSubmit: () => Promise<void>;
+}) {
+  return (
+    <Modal onClose={onClose} title="Create Agent Policy">
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {error && (
+          <div style={{
+            padding: 12,
+            background: "#fee2e2",
+            border: "1px solid #fca5a5",
+            borderRadius: 8,
+            color: "#991b1b",
+            fontSize: 13
+          }}>
+            {error}
+          </div>
+        )}
+
+        <FormField
+          label="Agent ID"
+          value={agentId}
+          onChange={onAgentIdChange}
+          placeholder="e.g., agent_123"
+          required
+        />
+
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            Allowed Tools (select tools this agent CAN use)
+          </label>
+          <div style={{
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            padding: 12,
+            maxHeight: 150,
+            overflowY: "auto",
+            background: "#f9f9f9"
+          }}>
+            {allTools.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#999" }}>No tools available</div>
+            ) : (
+              allTools.map((tool) => (
+                <label key={tool.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.allowed_tools.includes(tool.name)}
+                    onChange={(e) => {
+                      const newAllowed = e.target.checked
+                        ? [...formData.allowed_tools, tool.name]
+                        : formData.allowed_tools.filter((t: string) => t !== tool.name);
+                      onFormDataChange({ ...formData, allowed_tools: newAllowed });
+                    }}
+                  />
+                  <span style={{ fontSize: 12 }}>{tool.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            Blocked Tools (select tools this agent CANNOT use)
+          </label>
+          <div style={{
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            padding: 12,
+            maxHeight: 150,
+            overflowY: "auto",
+            background: "#f9f9f9"
+          }}>
+            {allTools.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#999" }}>No tools available</div>
+            ) : (
+              allTools.map((tool) => (
+                <label key={`blocked-${tool.name}`} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.blocked_tools.includes(tool.name)}
+                    onChange={(e) => {
+                      const newBlocked = e.target.checked
+                        ? [...formData.blocked_tools, tool.name]
+                        : formData.blocked_tools.filter((t: string) => t !== tool.name);
+                      onFormDataChange({ ...formData, blocked_tools: newBlocked });
+                    }}
+                  />
+                  <span style={{ fontSize: 12 }}>{tool.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+
+        <FormField
+          label="Max Actions Per Hour (optional)"
+          value={String(formData.max_actions_per_hour || "")}
+          onChange={(value) => onFormDataChange({ ...formData, max_actions_per_hour: parseInt(value) || 0 })}
+          type="number"
+          min="0"
+          placeholder="e.g., 1000"
+        />
+
+        <FormField
+          label="Max Spend USD Per Day (optional)"
+          value={String(formData.max_spend_usd_per_day || "")}
+          onChange={(value) => onFormDataChange({ ...formData, max_spend_usd_per_day: parseFloat(value) || 0 })}
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="e.g., 100.00"
+        />
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={onSubmit}
+            disabled={loading || !agentId}
+            style={{
+              flex: 1,
+              padding: "10px 16px",
+              background: "#4f46e5",
+              color: "white",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: loading || !agentId ? "not-allowed" : "pointer",
+              opacity: loading || !agentId ? 0.6 : 1
+            }}
+          >
+            {loading ? "Creating..." : "Create Policy"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: "10px 16px",
+              background: "#f3f4f6",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </Modal>
   );
 }
