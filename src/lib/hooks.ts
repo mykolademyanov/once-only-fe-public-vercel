@@ -14,6 +14,7 @@ export type Me = {
   current_period_end: string | null;
   requests_total_all_time?: number;
   blocked_total_all_time?: number;
+  email_notifications_enabled?: boolean;
 };
 
 // New structure for split usage

@@ -7,9 +7,13 @@ import UpgradeBanner from "@/components/UpgradeBanner";
 import InfoTip from "@/components/InfoTip";
 import { useMe, useUsage, useMetrics } from "@/lib/hooks";
 import { toISODate } from "@/lib/date";
+import { apiPost } from "@/lib/api";
 
 export default function OverviewPage() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [notifyEnabled, setNotifyEnabled] = useState<boolean | null>(null);
+  const [notifySaving, setNotifySaving] = useState(false);
+  const [notifyError, setNotifyError] = useState("");
 
   // Auto-refresh data every 10 seconds
   useEffect(() => {
@@ -21,6 +25,29 @@ export default function OverviewPage() {
   const usage = useUsage(refreshKey);
   const todayDate = toISODate(new Date());
   const metrics = useMetrics(todayDate, todayDate, refreshKey);
+
+  useEffect(() => {
+    if (!me.loading && me.data) {
+      setNotifyEnabled(me.data.email_notifications_enabled ?? true);
+    }
+  }, [me.loading, me.data?.email_notifications_enabled]);
+
+  const handleToggleNotifications = async () => {
+    if (notifyEnabled === null || notifySaving) return;
+    const next = !notifyEnabled;
+    setNotifyEnabled(next);
+    setNotifySaving(true);
+    setNotifyError("");
+    try {
+      await apiPost("/v1/me/notifications", { email_notifications_enabled: next });
+      setRefreshKey((x) => x + 1);
+    } catch (err) {
+      setNotifyEnabled(!next);
+      setNotifyError("Failed to update email alerts. Please try again.");
+    } finally {
+      setNotifySaving(false);
+    }
+  };
 
   // Status checks
   const paymentRequired = me.error?.status === 402 || usage.error?.status === 402;
@@ -38,6 +65,8 @@ export default function OverviewPage() {
   const aiUsageValue = usage.data?.ai?.charged_total_month ?? usage.data?.ai?.usage ?? 0;
 
   const showMakeFirst = makeUsageValue > aiUsageValue;
+  const toggleOn = !!notifyEnabled;
+  const toggleDisabled = notifyEnabled === null || notifySaving || me.loading;
 
   const automationSection = (
     <section>
@@ -233,6 +262,65 @@ export default function OverviewPage() {
           <code style={{ background: "#eee", padding: "4px 8px", borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
             {me.loading ? "········" : me.data?.key_preview ?? "—"}
           </code>
+        </div>
+        <div style={{
+          gridColumn: "1 / -1",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "12px 14px",
+          background: "white",
+          borderRadius: 16,
+          border: "1px solid #eee"
+        }}>
+          <div>
+            <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase" }}>
+              Email Alerts
+            </div>
+            <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
+              Monthly 80% usage warnings + agent error alerts.
+            </div>
+            {notifyError && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>
+                {notifyError}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: toggleOn ? "#059669" : "#9ca3af" }}>
+              {toggleOn ? (notifySaving ? "Saving..." : "On") : (notifySaving ? "Saving..." : "Off")}
+            </div>
+            <button
+              onClick={handleToggleNotifications}
+              disabled={toggleDisabled}
+              aria-pressed={toggleOn}
+              style={{
+                width: 44,
+                height: 24,
+                borderRadius: 999,
+                border: "none",
+                cursor: toggleDisabled ? "not-allowed" : "pointer",
+                background: toggleOn ? "#111" : "#e5e7eb",
+                position: "relative",
+                transition: "background 0.2s",
+                opacity: toggleDisabled ? 0.6 : 1,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: toggleOn ? 22 : 2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  background: "white",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                  transition: "left 0.2s",
+                }}
+              />
+            </button>
+          </div>
         </div>
       </div>
 
