@@ -10,6 +10,9 @@ export default function GovPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTool, setEditingTool] = useState<ToolListItem | null>(null);
   const [globalError, setGlobalError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ tool: ToolListItem; scopeId: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Policies state
   const [agentId, setAgentId] = useState("");
@@ -225,14 +228,9 @@ export default function GovPage() {
                       tool={tool}
                       scopeId={scopeId}
                       onEdit={() => setEditingTool(tool)}
-                      onDelete={async () => {
-                        if (!confirm(`Delete tool "${tool.name}"?`)) return;
-                        try {
-                          await deleteTool(tool.name, scopeId);
-                          setRefreshKey(x => x + 1);
-                        } catch (err: any) {
-                          setGlobalError(`Failed to delete tool: ${err.message}`);
-                        }
+                      onDelete={() => {
+                        setDeleteError("");
+                        setDeleteTarget({ tool, scopeId });
                       }}
                       onToggle={async () => {
                         try {
@@ -638,6 +636,90 @@ export default function GovPage() {
           onSuccess={handleToolUpdated}
           onError={(msg) => setGlobalError(msg)}
         />
+      )}
+
+      {deleteTarget && (
+        <Modal
+          title={`Delete Tool: ${deleteTarget.tool.name}`}
+          onClose={() => {
+            if (!deleteLoading) {
+              setDeleteTarget(null);
+              setDeleteError("");
+            }
+          }}
+        >
+          <div style={{ fontSize: 13, color: "#444", lineHeight: 1.5 }}>
+            This will permanently delete the tool and remove it from all scopes.
+            Policies that reference this tool may fail validation until updated.
+          </div>
+
+          {deleteError && (
+            <div style={{
+              marginTop: 12,
+              padding: 10,
+              background: "#fee2e2",
+              border: "1px solid #fca5a5",
+              borderRadius: 8,
+              color: "#991b1b",
+              fontSize: 12
+            }}>
+              {deleteError}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button
+              onClick={async () => {
+                if (!deleteTarget) return;
+                setDeleteLoading(true);
+                setDeleteError("");
+                try {
+                  await deleteTool(deleteTarget.tool.name, deleteTarget.scopeId);
+                  setRefreshKey(x => x + 1);
+                  setDeleteTarget(null);
+                } catch (err: any) {
+                  setDeleteError(err.details?.message || err.message || "Failed to delete tool");
+                } finally {
+                  setDeleteLoading(false);
+                }
+              }}
+              disabled={deleteLoading}
+              style={{
+                flex: 1,
+                padding: "10px 16px",
+                background: "#dc2626",
+                color: "white",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: deleteLoading ? "not-allowed" : "pointer",
+                opacity: deleteLoading ? 0.7 : 1
+              }}
+            >
+              {deleteLoading ? "Deleting..." : "Delete Tool"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (deleteLoading) return;
+                setDeleteTarget(null);
+                setDeleteError("");
+              }}
+              style={{
+                padding: "10px 16px",
+                background: "#f3f4f6",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </Modal>
       )}
 
       {showPolicyModal && (
