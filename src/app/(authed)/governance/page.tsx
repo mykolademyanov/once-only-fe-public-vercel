@@ -781,15 +781,15 @@ function ToolCard({
   tool: ToolListItem;
   scopeId: string;
   onEdit: () => void;
-  onDelete: () => Promise<void>;
-  onToggle: () => Promise<void>;
+  onDelete: () => void | Promise<void>;
+  onToggle: () => void | Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
     setLoading(true);
     try {
-      await onDelete();
+      await Promise.resolve(onDelete());
     } finally {
       setLoading(false);
     }
@@ -798,7 +798,7 @@ function ToolCard({
   const handleToggle = async () => {
     setLoading(true);
     try {
-      await onToggle();
+      await Promise.resolve(onToggle());
     } finally {
       setLoading(false);
     }
