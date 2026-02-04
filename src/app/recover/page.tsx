@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { apiPost, ApiError } from "@/lib/api";
 import { setApiKey } from "@/lib/auth";
 
 export default function RecoverPage() {
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -45,6 +43,13 @@ export default function RecoverPage() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const t = sp.get("token");
+    if (t) setToken(t);
+  }, []);
 
   useEffect(() => {
     if (!token) return;
