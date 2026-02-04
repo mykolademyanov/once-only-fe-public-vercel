@@ -73,7 +73,7 @@ export default function UpgradeBanner({
               opacity: loading && loading !== "starter" ? 0.5 : 1,
             }}
           >
-            {loading === "starter" ? "Redirecting..." : "Starter ($9/mo)"}
+            {loading === "starter" ? "Redirecting..." : "Starter ($29/mo)"}
           </button>
 
           <button
@@ -91,7 +91,7 @@ export default function UpgradeBanner({
               opacity: loading && loading !== "pro" ? 0.5 : 1,
             }}
           >
-            {loading === "pro" ? "Redirecting..." : "Pro ($29/mo)"}
+            {loading === "pro" ? "Redirecting..." : "Pro ($149/mo)"}
           </button>
 
           <button
@@ -109,7 +109,7 @@ export default function UpgradeBanner({
               opacity: loading && loading !== "agency" ? 0.5 : 1,
             }}
           >
-            {loading === "agency" ? "Redirecting..." : "Agency ($69/mo)"}
+            {loading === "agency" ? "Redirecting..." : "Agency ($799/mo)"}
           </button>
         </div>
       )}
