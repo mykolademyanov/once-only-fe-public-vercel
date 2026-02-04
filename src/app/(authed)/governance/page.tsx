@@ -782,13 +782,13 @@ function ToolCard({
         <div>
           <div style={{ fontSize: 11, color: "#999", fontWeight: 600 }}>Timeout</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#111", marginTop: 2 }}>
-            {tool.timeout_ms}ms
+            {Number.isFinite(tool.timeout_ms) ? `${tool.timeout_ms}ms` : "—"}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: "#999", fontWeight: 600 }}>Max Retries</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#111", marginTop: 2 }}>
-            {tool.max_retries}
+            {Number.isFinite(tool.max_retries) ? tool.max_retries : "—"}
           </div>
         </div>
       </div>

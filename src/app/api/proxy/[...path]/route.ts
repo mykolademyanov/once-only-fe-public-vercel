@@ -20,12 +20,12 @@ async function proxy(req: Request) {
   headers.set("accept", "application/json");
 
   const options: RequestInit = {
-    method: req.method, // GET or POST
+    method: req.method, // GET/POST/DELETE/etc
     headers: headers,
     cache: "no-store",
   };
 
-  if (req.method === "POST") {
+  if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE") {
     options.body = await req.text();
   }
 
@@ -52,5 +52,17 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  return proxy(req);
+}
+
+export async function DELETE(req: Request) {
+  return proxy(req);
+}
+
+export async function PUT(req: Request) {
+  return proxy(req);
+}
+
+export async function PATCH(req: Request) {
   return proxy(req);
 }
