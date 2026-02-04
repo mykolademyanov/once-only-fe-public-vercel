@@ -19,9 +19,12 @@ const TYPE_LABELS: Record<string, string> = {
   over_limit: "Limit Reached",
   locked: "New Lock Created",
   ai_acquired: "AI Lease Acquired",
+  ai_in_progress: "AI In Progress",
   ai_completed: "AI Task Completed",
   ai_failed: "AI Task Failed",
   ai_extended: "AI Lease Extended",
+  ai_canceled: "AI Canceled",
+  ai_over_limit: "AI Limit Reached",
 };
 
 export default function EventsList({ items }: { items: EventItem[] }) {
