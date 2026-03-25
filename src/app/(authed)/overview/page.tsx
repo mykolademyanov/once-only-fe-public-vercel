@@ -12,7 +12,9 @@ import { apiPost } from "@/lib/api";
 export default function OverviewPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [notifyEnabled, setNotifyEnabled] = useState<boolean | null>(null);
-  const [notifySaving, setNotifySaving] = useState(false);
+  const [toolNotifyEnabled, setToolNotifyEnabled] = useState<boolean | null>(null);
+  const [runNotifyEnabled, setRunNotifyEnabled] = useState<boolean | null>(null);
+  const [notifySavingKey, setNotifySavingKey] = useState<"all" | "tool" | "run" | null>(null);
   const [notifyError, setNotifyError] = useState("");
 
   // Auto-refresh data every 10 seconds
@@ -28,24 +30,76 @@ export default function OverviewPage() {
 
   useEffect(() => {
     if (!me.loading && me.data) {
-      setNotifyEnabled(me.data.email_notifications_enabled ?? true);
+      const globalEnabled = me.data.email_notifications_enabled ?? true;
+      setNotifyEnabled(globalEnabled);
+      setToolNotifyEnabled(me.data.tool_error_notifications_enabled ?? globalEnabled);
+      setRunNotifyEnabled(me.data.run_failure_notifications_enabled ?? globalEnabled);
     }
-  }, [me.loading, me.data?.email_notifications_enabled]);
+  }, [
+    me.loading,
+    me.data,
+    me.data?.email_notifications_enabled,
+    me.data?.tool_error_notifications_enabled,
+    me.data?.run_failure_notifications_enabled,
+  ]);
 
-  const handleToggleNotifications = async () => {
-    if (notifyEnabled === null || notifySaving) return;
-    const next = !notifyEnabled;
+  const handleToggleAllNotifications = async () => {
+    if (notifyEnabled === null || notifySavingKey) return;
+    const prevGlobal = notifyEnabled;
+    const prevTool = toolNotifyEnabled ?? prevGlobal;
+    const prevRun = runNotifyEnabled ?? prevGlobal;
+    const next = !prevGlobal;
     setNotifyEnabled(next);
-    setNotifySaving(true);
+    setToolNotifyEnabled(next);
+    setRunNotifyEnabled(next);
+    setNotifySavingKey("all");
     setNotifyError("");
     try {
       await apiPost("/v1/me/notifications", { email_notifications_enabled: next });
       setRefreshKey((x) => x + 1);
-    } catch (err) {
-      setNotifyEnabled(!next);
+    } catch {
+      setNotifyEnabled(prevGlobal);
+      setToolNotifyEnabled(prevTool);
+      setRunNotifyEnabled(prevRun);
       setNotifyError("Failed to update email alerts. Please try again.");
     } finally {
-      setNotifySaving(false);
+      setNotifySavingKey(null);
+    }
+  };
+
+  const handleToggleToolNotifications = async () => {
+    if (toolNotifyEnabled === null || notifySavingKey || !notifyEnabled) return;
+    const prev = toolNotifyEnabled;
+    const next = !prev;
+    setToolNotifyEnabled(next);
+    setNotifySavingKey("tool");
+    setNotifyError("");
+    try {
+      await apiPost("/v1/me/notifications", { tool_error_notifications_enabled: next });
+      setRefreshKey((x) => x + 1);
+    } catch {
+      setToolNotifyEnabled(prev);
+      setNotifyError("Failed to update tool error alerts. Please try again.");
+    } finally {
+      setNotifySavingKey(null);
+    }
+  };
+
+  const handleToggleRunNotifications = async () => {
+    if (runNotifyEnabled === null || notifySavingKey || !notifyEnabled) return;
+    const prev = runNotifyEnabled;
+    const next = !prev;
+    setRunNotifyEnabled(next);
+    setNotifySavingKey("run");
+    setNotifyError("");
+    try {
+      await apiPost("/v1/me/notifications", { run_failure_notifications_enabled: next });
+      setRefreshKey((x) => x + 1);
+    } catch {
+      setRunNotifyEnabled(prev);
+      setNotifyError("Failed to update run failure alerts. Please try again.");
+    } finally {
+      setNotifySavingKey(null);
     }
   };
 
@@ -65,8 +119,65 @@ export default function OverviewPage() {
   const aiUsageValue = usage.data?.ai?.charged_total_month ?? usage.data?.ai?.usage ?? 0;
 
   const showMakeFirst = makeUsageValue > aiUsageValue;
-  const toggleOn = !!notifyEnabled;
-  const toggleDisabled = notifyEnabled === null || notifySaving || me.loading;
+  const globalToggleOn = !!notifyEnabled;
+  const toolToggleOn = !!toolNotifyEnabled;
+  const runToggleOn = !!runNotifyEnabled;
+  const globalToggleDisabled = notifyEnabled === null || notifySavingKey !== null || me.loading;
+  const channelToggleDisabled = !notifyEnabled || notifySavingKey !== null || me.loading;
+
+  const renderNotifyToggle = (
+    label: string,
+    on: boolean,
+    disabled: boolean,
+    saving: boolean,
+    onClick: () => void,
+  ) => (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+      }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: on ? "#059669" : "#9ca3af" }}>
+          {on ? (saving ? "Saving..." : "On") : (saving ? "Saving..." : "Off")}
+        </div>
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          aria-pressed={on}
+          style={{
+            width: 44,
+            height: 24,
+            borderRadius: 999,
+            border: "none",
+            cursor: disabled ? "not-allowed" : "pointer",
+            background: on ? "#111" : "#e5e7eb",
+            position: "relative",
+            transition: "background 0.2s",
+            opacity: disabled ? 0.6 : 1,
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 2,
+              left: on ? 22 : 2,
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              background: "white",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+              transition: "left 0.2s",
+            }}
+          />
+        </button>
+      </div>
+    </div>
+  );
 
   const automationSection = (
     <section>
@@ -267,7 +378,7 @@ export default function OverviewPage() {
           gridColumn: "1 / -1",
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: "flex-start",
           padding: "12px 14px",
           background: "white",
           borderRadius: 16,
@@ -278,48 +389,41 @@ export default function OverviewPage() {
               Email Alerts
             </div>
             <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-              Monthly 80% usage warnings + agent error alerts.
+              Monthly 80% usage warnings plus separate alerts for tool errors and run failures.
             </div>
+            {!globalToggleOn && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 600 }}>
+                Channel toggles are paused until &quot;All Email Alerts&quot; is enabled.
+              </div>
+            )}
             {notifyError && (
               <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>
                 {notifyError}
               </div>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: toggleOn ? "#059669" : "#9ca3af" }}>
-              {toggleOn ? (notifySaving ? "Saving..." : "On") : (notifySaving ? "Saving..." : "Off")}
-            </div>
-            <button
-              onClick={handleToggleNotifications}
-              disabled={toggleDisabled}
-              aria-pressed={toggleOn}
-              style={{
-                width: 44,
-                height: 24,
-                borderRadius: 999,
-                border: "none",
-                cursor: toggleDisabled ? "not-allowed" : "pointer",
-                background: toggleOn ? "#111" : "#e5e7eb",
-                position: "relative",
-                transition: "background 0.2s",
-                opacity: toggleDisabled ? 0.6 : 1,
-              }}
-            >
-              <span
-                style={{
-                  position: "absolute",
-                  top: 2,
-                  left: toggleOn ? 22 : 2,
-                  width: 20,
-                  height: 20,
-                  borderRadius: "50%",
-                  background: "white",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
-                  transition: "left 0.2s",
-                }}
-              />
-            </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 250 }}>
+            {renderNotifyToggle(
+              "All Email Alerts",
+              globalToggleOn,
+              globalToggleDisabled,
+              notifySavingKey === "all",
+              handleToggleAllNotifications,
+            )}
+            {renderNotifyToggle(
+              "Tool Errors",
+              toolToggleOn,
+              channelToggleDisabled,
+              notifySavingKey === "tool",
+              handleToggleToolNotifications,
+            )}
+            {renderNotifyToggle(
+              "Run Failures",
+              runToggleOn,
+              channelToggleDisabled,
+              notifySavingKey === "run",
+              handleToggleRunNotifications,
+            )}
           </div>
         </div>
       </div>

@@ -15,6 +15,8 @@ export type Me = {
   requests_total_all_time?: number;
   blocked_total_all_time?: number;
   email_notifications_enabled?: boolean;
+  tool_error_notifications_enabled?: boolean;
+  run_failure_notifications_enabled?: boolean;
 };
 
 // New structure for split usage
