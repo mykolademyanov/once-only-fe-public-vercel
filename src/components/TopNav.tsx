@@ -47,6 +47,7 @@ export default function TopNav() {
         <nav style={{ display: "flex", gap: 16, alignItems: "center" }}>
           <NavLink href="/overview" label="Overview" />
           <NavLink href="/events" label="Events" />
+          <NavLink href="/run-debug" label="Run Debug" />
           <NavLink href="/metrics" label="Metrics" />
 
           {isPro && (
