@@ -1,7 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import EventsList from "@/components/EventsList";
 import UpgradeBanner from "@/components/UpgradeBanner";
 import { apiGet } from "@/lib/api";
@@ -15,14 +14,11 @@ function eventKey(e: EventItem): string {
 }
 
 export default function EventsPage() {
-  const router = useRouter();
   const events = useEvents(PAGE_SIZE, 7000);
   const [extra, setExtra] = useState<EventItem[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [runIdInput, setRunIdInput] = useState("");
-  const [runLookupError, setRunLookupError] = useState("");
 
   useEffect(() => {
     if (events.data && events.data.length < PAGE_SIZE && extra.length === 0) {
@@ -51,21 +47,6 @@ export default function EventsPage() {
     }
     return out;
   }, [events.data, extra]);
-
-  function openRunDebug(runIdRaw: string) {
-    const runId = runIdRaw.trim();
-    if (!runId) {
-      setRunLookupError("Enter run_id first.");
-      return;
-    }
-    setRunLookupError("");
-    router.push(`/run-debug?run_id=${encodeURIComponent(runId)}`);
-  }
-
-  function onRunSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    openRunDebug(runIdInput);
-  }
 
   async function loadMore() {
     if (loadingMore || !hasMore) return;
@@ -98,46 +79,6 @@ export default function EventsPage() {
 
       {paymentRequired ? <UpgradeBanner reason="payment" /> : null}
       {rateLimited ? <UpgradeBanner reason="rate" /> : null}
-
-      <div style={{ border: "1px solid #eee", borderRadius: 16, background: "white", padding: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Run Debug (timeline)</div>
-        <div style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>
-          Open dedicated Run Debug page for a specific <code>run_id</code>.
-        </div>
-        <form onSubmit={onRunSubmit} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            value={runIdInput}
-            onChange={(e) => setRunIdInput(e.target.value)}
-            placeholder="run_123"
-            style={{
-              flex: "1 1 260px",
-              minWidth: 220,
-              border: "1px solid #ddd",
-              borderRadius: 10,
-              padding: "10px 12px",
-              fontSize: 14,
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: "1px solid #111",
-              background: "#111",
-              color: "white",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            Open Run Debug
-          </button>
-        </form>
-
-        {runLookupError ? (
-          <div style={{ marginTop: 10, color: "#b00020", fontSize: 13 }}>{runLookupError}</div>
-        ) : null}
-      </div>
 
       {combined.length > 0 ? (
         <EventsList items={combined} />
