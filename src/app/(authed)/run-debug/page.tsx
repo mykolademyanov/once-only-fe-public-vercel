@@ -220,6 +220,12 @@ export default function RunDebugPage() {
             {runs.map((run, idx) => {
               const s = (run.last_status || "").toLowerCase();
               const isError = s === "failed" || s === "blocked" || s === "error";
+              const isSuccess =
+                s === "completed" ||
+                s === "ok" ||
+                s === "success" ||
+                s === "executed" ||
+                s === "dedup";
               return (
                 <button
                   key={`${run.run_id}-${idx}`}
@@ -246,8 +252,8 @@ export default function RunDebugPage() {
                       {run.last_status ? (
                         <span
                           style={{
-                            color: isError ? "#a23d3d" : "#4f46e5",
-                            background: isError ? "#fdecec" : "#eef2ff",
+                            color: isError ? "#a23d3d" : isSuccess ? "#1f6b3a" : "#4f46e5",
+                            background: isError ? "#fdecec" : isSuccess ? "#edf8ef" : "#eef2ff",
                             padding: "1px 6px",
                             borderRadius: 999,
                             fontWeight: 600,
@@ -285,6 +291,13 @@ export default function RunDebugPage() {
                   statusNorm === "blocked" ||
                   typeNorm.includes("failed") ||
                   typeNorm.includes("error");
+                const isSuccess =
+                  statusNorm === "completed" ||
+                  statusNorm === "ok" ||
+                  statusNorm === "success" ||
+                  statusNorm === "executed" ||
+                  statusNorm === "dedup" ||
+                  typeNorm.includes("completed");
 
                 return (
               <div
@@ -295,8 +308,8 @@ export default function RunDebugPage() {
                   display: "flex",
                   justifyContent: "space-between",
                   gap: 12,
-                  background: isError ? "#fff7f7" : "white",
-                  borderLeft: isError ? "3px solid #efc9c9" : "3px solid transparent",
+                  background: isError ? "#fff7f7" : isSuccess ? "#f6fbf7" : "white",
+                  borderLeft: isError ? "3px solid #efc9c9" : isSuccess ? "3px solid #cfe8d5" : "3px solid transparent",
                 }}
               >
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -307,8 +320,8 @@ export default function RunDebugPage() {
                     {event.status ? (
                       <span
                         style={{
-                          color: isError ? "#a23d3d" : "#4f46e5",
-                          background: isError ? "#fdecec" : "#eef2ff",
+                          color: isError ? "#a23d3d" : isSuccess ? "#1f6b3a" : "#4f46e5",
+                          background: isError ? "#fdecec" : isSuccess ? "#edf8ef" : "#eef2ff",
                           padding: "1px 6px",
                           borderRadius: 999,
                           fontWeight: 600,
@@ -320,7 +333,7 @@ export default function RunDebugPage() {
                     {typeof event.duration_ms === "number" ? <span style={{ color: "#777" }}>({event.duration_ms}ms)</span> : null}
                   </div>
                   {event.message ? (
-                    <div style={{ marginTop: 4, color: isError ? "#7d3a3a" : "#555", fontSize: 12 }}>
+                    <div style={{ marginTop: 4, color: isError ? "#7d3a3a" : isSuccess ? "#2f5a3d" : "#555", fontSize: 12 }}>
                       {event.message}
                     </div>
                   ) : null}
