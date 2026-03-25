@@ -10,6 +10,7 @@ export type Plan = string;
 export type Me = {
   plan: Plan;
   key_preview: string;
+  email?: string | null;
   is_active: boolean;
   current_period_end: string | null;
   requests_total_all_time?: number;

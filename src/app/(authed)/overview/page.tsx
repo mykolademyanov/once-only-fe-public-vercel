@@ -373,6 +373,12 @@ export default function OverviewPage() {
           <code style={{ background: "#eee", padding: "4px 8px", borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
             {me.loading ? "········" : me.data?.key_preview ?? "—"}
           </code>
+          <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase", marginTop: 8 }}>
+            Account Email
+          </div>
+          <div style={{ fontSize: 13, color: "#374151", marginTop: 2, wordBreak: "break-all" }}>
+            {me.loading ? "······@······" : me.data?.email ?? "—"}
+          </div>
         </div>
         <div style={{
           gridColumn: "1 / -1",
