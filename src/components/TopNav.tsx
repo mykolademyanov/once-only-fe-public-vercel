@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clearApiKey } from "@/lib/auth";
-import { useMe } from "@/lib/hooks";
 
 function NavLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
@@ -24,9 +23,6 @@ function NavLink({ href, label }: { href: string; label: string }) {
 }
 
 export default function TopNav() {
-  const me = useMe();
-  const isPro = (me.data?.plan ?? "free") === "pro" || (me.data?.plan ?? "free") === "agency";
-
   return (
     <header style={{ borderBottom: "1px solid #eee", background: "white", position: "sticky", top: 0, zIndex: 10 }}>
       <div
@@ -50,9 +46,7 @@ export default function TopNav() {
           <NavLink href="/run-debug" label="Run Debug" />
           <NavLink href="/metrics" label="Metrics" />
 
-          {isPro && (
-            <NavLink href="/governance" label="Governance" />
-          )}
+          <NavLink href="/governance" label="Governance" />
 
           <button
             onClick={() => {

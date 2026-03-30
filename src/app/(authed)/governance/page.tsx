@@ -2,11 +2,160 @@
 
 import { useEffect, useState } from "react";
 import { useMe, useToolsGroupedByScope, ToolListItem } from "@/lib/hooks";
-import { upsertTool, deleteTool, toggleTool, upsertPolicy, getPolicy, listPolicies, createPolicyFromTemplate } from "@/lib/gov-api-client";
+import {
+  upsertTool,
+  deleteTool,
+  toggleTool,
+  upsertPolicy,
+  getPolicy,
+  listPolicies,
+  createPolicyFromTemplate,
+  getAgentLogs,
+  getAgentMetrics,
+} from "@/lib/gov-api-client";
+
+type PlanTier = "free" | "starter" | "pro" | "agency";
+type PolicyTemplate = "custom" | "strict" | "moderate" | "permissive" | "read_only" | "support_bot";
+type PricingRule = { tool: string; price_usd: number };
+type PolicyFormData = {
+  allowed_tools: string[];
+  blocked_tools: string[];
+  max_actions_per_hour: number;
+  max_spend_usd_per_day: number;
+  max_calls_per_tool_text: string;
+  pricing_rules_text: string;
+};
+type MetricsPeriod = "hour" | "day" | "week";
+type AgentLogRecord = {
+  ts: number | string;
+  agent_id: string;
+  tool?: string | null;
+  allowed: boolean;
+  reason?: string | null;
+  decision?: string | null;
+  policy_reason?: string | null;
+  risk_level?: string | null;
+  args_hash?: string | null;
+  spend_usd?: number | null;
+};
+type AgentMetricsRecord = {
+  agent_id: string;
+  period: string;
+  total_actions: number;
+  blocked_actions: number;
+  total_spend_usd: number;
+  top_tools: Array<{ tool: string; count: number }>;
+};
+
+function normalizePlan(plan: string | null | undefined): PlanTier {
+  const p = String(plan || "free").toLowerCase();
+  if (p === "starter" || p === "pro" || p === "agency") return p;
+  return "free";
+}
+
+function serializeMaxCallsPerTool(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  return Object.entries(value)
+    .map(([tool, cap]) => `${String(tool)}:${Number(cap)}`)
+    .join("\n");
+}
+
+function serializePricingRules(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  return value
+    .filter((rule) => rule && typeof rule === "object" && rule.tool)
+    .map((rule) => `${String(rule.tool)}:${Number(rule.price_usd ?? 0)}`)
+    .join("\n");
+}
+
+function parseMaxCallsPerToolText(text: string): { value?: Record<string, number>; error?: string } {
+  const lines = String(text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return {};
+
+  const out: Record<string, number> = {};
+  for (const line of lines) {
+    const idx = line.indexOf(":");
+    if (idx <= 0 || idx === line.length - 1) {
+      return { error: `Invalid max_calls_per_tool line "${line}". Use format tool:count` };
+    }
+    const tool = line.slice(0, idx).trim();
+    const capRaw = line.slice(idx + 1).trim();
+    const cap = Number.parseInt(capRaw, 10);
+    if (!tool || !Number.isFinite(cap) || cap <= 0) {
+      return { error: `Invalid cap in line "${line}". Count must be a positive integer` };
+    }
+    out[tool] = cap;
+  }
+  return { value: out };
+}
+
+function parsePricingRulesText(text: string): { value?: PricingRule[]; error?: string } {
+  const lines = String(text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return {};
+
+  const out: PricingRule[] = [];
+  for (const line of lines) {
+    const idx = line.indexOf(":");
+    if (idx <= 0 || idx === line.length - 1) {
+      return { error: `Invalid pricing rule line "${line}". Use format tool:price` };
+    }
+    const tool = line.slice(0, idx).trim();
+    const priceRaw = line.slice(idx + 1).trim();
+    const price = Number.parseFloat(priceRaw);
+    if (!tool || !Number.isFinite(price) || price < 0) {
+      return { error: `Invalid price in line "${line}". Price must be a number >= 0` };
+    }
+    out.push({ tool, price_usd: price });
+  }
+  return { value: out };
+}
+
+function formatLogTimestamp(value: number | string | null | undefined): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const dt = new Date(value > 1e12 ? value : value * 1000);
+    return Number.isNaN(dt.getTime()) ? "—" : dt.toLocaleString();
+  }
+  if (typeof value === "string") {
+    const raw = value.trim();
+    if (!raw) return "—";
+    if (/^\d+$/.test(raw)) {
+      const parsedEpoch = Number.parseInt(raw, 10);
+      if (Number.isFinite(parsedEpoch)) {
+        const dt = new Date(parsedEpoch > 1e12 ? parsedEpoch : parsedEpoch * 1000);
+        return Number.isNaN(dt.getTime()) ? raw : dt.toLocaleString();
+      }
+    }
+    const parsed = Date.parse(raw);
+    if (!Number.isNaN(parsed)) return new Date(parsed).toLocaleString();
+    return raw;
+  }
+  return "—";
+}
+
+function normalizeDecision(log: AgentLogRecord): string {
+  const decision = String(log.decision || "").trim().toLowerCase();
+  if (decision) return decision;
+  return log.allowed ? "executed" : "blocked";
+}
+
+function decisionColors(decision: string): { bg: string; border: string; color: string } {
+  const d = String(decision || "").toLowerCase();
+  if (d === "blocked") return { bg: "#fef2f2", border: "#fecaca", color: "#991b1b" };
+  if (d === "executed") return { bg: "#ecfdf5", border: "#bbf7d0", color: "#166534" };
+  if (d === "dedup") return { bg: "#fffbeb", border: "#fde68a", color: "#92400e" };
+  if (d === "failed") return { bg: "#f9fafb", border: "#e5e7eb", color: "#374151" };
+  return { bg: "#f3f4f6", border: "#d1d5db", color: "#374151" };
+}
 
 export default function GovPage() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<"tools" | "policies">("tools");
+  const [activeTab, setActiveTab] = useState<"tools" | "policies" | "observability">("tools");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTool, setEditingTool] = useState<ToolListItem | null>(null);
   const [globalError, setGlobalError] = useState("");
@@ -17,15 +166,15 @@ export default function GovPage() {
   // Policies state
   const [agentId, setAgentId] = useState("");
   const [showPolicyModal, setShowPolicyModal] = useState(false);
-  const [policyFormData, setPolicyFormData] = useState({
+  const [policyFormData, setPolicyFormData] = useState<PolicyFormData>({
     allowed_tools: [] as string[],
     blocked_tools: [] as string[],
     max_actions_per_hour: 0,
     max_spend_usd_per_day: 0,
+    max_calls_per_tool_text: "",
+    pricing_rules_text: "",
   });
-  const [policyTemplate, setPolicyTemplate] = useState<
-    "custom" | "strict" | "moderate" | "permissive" | "read_only" | "support_bot"
-  >("custom");
+  const [policyTemplate, setPolicyTemplate] = useState<PolicyTemplate>("custom");
   const [policyLoading, setPolicyLoading] = useState(false);
   const [policyError, setPolicyError] = useState("");
 
@@ -39,6 +188,15 @@ export default function GovPage() {
   const [loadingPoliciesList, setLoadingPoliciesList] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
 
+  // Agent observability state
+  const [observabilityAgentId, setObservabilityAgentId] = useState("");
+  const [observabilityPeriod, setObservabilityPeriod] = useState<MetricsPeriod>("day");
+  const [observabilityLimit, setObservabilityLimit] = useState(100);
+  const [observabilityLoading, setObservabilityLoading] = useState(false);
+  const [observabilityError, setObservabilityError] = useState("");
+  const [agentLogs, setAgentLogs] = useState<AgentLogRecord[]>([]);
+  const [agentMetrics, setAgentMetrics] = useState<AgentMetricsRecord | null>(null);
+
   const me = useMe(refreshKey);
   const toolsGrouped = useToolsGroupedByScope(refreshKey);
 
@@ -46,16 +204,24 @@ export default function GovPage() {
   const paymentRequired = me.error?.status === 402;
   const rateLimited = me.error?.status === 429;
   const inactive = me.data ? !me.data.is_active : false;
-  const isPro = (me.data?.plan ?? "free") === "pro" || (me.data?.plan ?? "free") === "agency";
+  const planTier = normalizePlan(me.data?.plan);
+  const isStarterPlus = planTier !== "free";
+  const isProPlus = planTier === "pro" || planTier === "agency";
 
-  // Show content only for pro/agency plans
-  const showContent = !me.loading && isPro && !paymentRequired && !inactive && !rateLimited;
+  // Show content for all plans (feature-level limits are enforced in forms/API)
+  const showContent = !me.loading && !paymentRequired && !inactive && !rateLimited;
 
   // Auto-refresh data every 45 seconds
   useEffect(() => {
     const id = window.setInterval(() => setRefreshKey((x) => x + 1), 45_000);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!isProPlus && policyTemplate !== "custom") {
+      setPolicyTemplate("custom");
+    }
+  }, [isProPlus, policyTemplate]);
 
   // Load all policies when tab is active
   useEffect(() => {
@@ -102,6 +268,37 @@ export default function GovPage() {
       alert(`Policy not found for agent: ${id}`);
     } finally {
       setLoadingPolicy(false);
+    }
+  };
+
+  const loadObservability = async (explicitAgentId?: string) => {
+    const targetAgentId = String(explicitAgentId ?? observabilityAgentId).trim();
+    if (!targetAgentId) {
+      setObservabilityError("Enter agent_id to load logs and metrics.");
+      return;
+    }
+
+    const normalizedLimit = Math.max(1, Math.min(500, Math.trunc(Number(observabilityLimit) || 100)));
+
+    setObservabilityLoading(true);
+    setObservabilityError("");
+    try {
+      const [logsResp, metricsResp] = await Promise.all([
+        getAgentLogs(targetAgentId, normalizedLimit),
+        getAgentMetrics(targetAgentId, observabilityPeriod),
+      ]);
+
+      const logs = Array.isArray(logsResp) ? logsResp as AgentLogRecord[] : [];
+      setAgentLogs(logs);
+      setAgentMetrics(metricsResp);
+      setObservabilityAgentId(targetAgentId);
+      setObservabilityLimit(normalizedLimit);
+    } catch (err: any) {
+      setAgentLogs([]);
+      setAgentMetrics(null);
+      setObservabilityError(err?.details?.message || err?.message || "Failed to load agent observability.");
+    } finally {
+      setObservabilityLoading(false);
     }
   };
 
@@ -302,6 +499,8 @@ export default function GovPage() {
               blocked_tools: [],
               max_actions_per_hour: 0,
               max_spend_usd_per_day: 0,
+              max_calls_per_tool_text: "",
+              pricing_rules_text: "",
             });
             setPolicyTemplate("custom");
             setShowPolicyModal(true);
@@ -462,7 +661,7 @@ export default function GovPage() {
               {/* Limits */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                 gap: 12,
                 padding: "12px 0",
                 borderTop: "1px solid #e0e7ff",
@@ -485,6 +684,43 @@ export default function GovPage() {
                     ${(selectedPolicy.policy?.max_spend_usd_per_day || 0).toFixed(2)}
                   </div>
                 </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#666", marginBottom: 4 }}>
+                    Calls Per Tool Caps
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>
+                    {selectedPolicy.policy?.max_calls_per_tool
+                      ? Object.keys(selectedPolicy.policy.max_calls_per_tool || {}).length
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#666", marginBottom: 8, textTransform: "uppercase" }}>
+                  Pricing Rules ({selectedPolicy.policy?.pricing_rules?.length || 0})
+                </div>
+                {selectedPolicy.policy?.pricing_rules?.length > 0 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {selectedPolicy.policy.pricing_rules.map((rule: { tool?: string; price_usd?: number }, idx: number) => (
+                      <div
+                        key={`${rule?.tool || "rule"}-${idx}`}
+                        style={{
+                          padding: "6px 10px",
+                          background: "#dcfce7",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          color: "#166534",
+                          fontWeight: 600
+                        }}
+                      >
+                        {rule?.tool}: ${Number(rule?.price_usd || 0).toFixed(2)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#999", fontStyle: "italic" }}>None</div>
+                )}
               </div>
 
               {/* Actions */}
@@ -497,7 +733,10 @@ export default function GovPage() {
                       blocked_tools: selectedPolicy.policy?.blocked_tools || [],
                       max_actions_per_hour: selectedPolicy.policy?.max_actions_per_hour || 0,
                       max_spend_usd_per_day: selectedPolicy.policy?.max_spend_usd_per_day || 0,
+                      max_calls_per_tool_text: serializeMaxCallsPerTool(selectedPolicy.policy?.max_calls_per_tool),
+                      pricing_rules_text: serializePricingRules(selectedPolicy.policy?.pricing_rules),
                     });
+                    setPolicyTemplate("custom");
                     setShowPolicyModal(true);
                   }}
                   style={{
@@ -512,6 +751,27 @@ export default function GovPage() {
                     cursor: "pointer"
                   }}>
                   ✏️ Edit
+                </button>
+                <button
+                  onClick={() => {
+                    setObservabilityAgentId(selectedPolicy.agent_id);
+                    setActiveTab("observability");
+                    if (isProPlus) {
+                      void loadObservability(selectedPolicy.agent_id);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    background: "#dcfce7",
+                    border: "none",
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#166534",
+                    cursor: "pointer"
+                  }}>
+                  📊 View Logs & Metrics
                 </button>
               </div>
             </div>
@@ -531,6 +791,264 @@ export default function GovPage() {
       )}
     </section>
   );
+
+  const blockedPct = agentMetrics && agentMetrics.total_actions > 0
+    ? Math.round((agentMetrics.blocked_actions / agentMetrics.total_actions) * 100)
+    : 0;
+
+  const observabilitySection = (
+    <section>
+      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 4, height: 20, background: "#0f766e", borderRadius: 2 }}></div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f766e" }}>Agent Observability</h2>
+          </div>
+          <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
+            Decision history for allowed, blocked, and deduped calls plus run-level tool usage metrics.
+          </p>
+        </div>
+      </div>
+
+      {!isProPlus ? (
+        <div style={{
+          border: "1px solid #fcd34d",
+          borderRadius: 12,
+          padding: 16,
+          background: "#fffbeb",
+          color: "#92400e"
+        }}>
+          Agent Logs and Agent Metrics are available on Pro and Agency plans.
+        </div>
+      ) : (
+        <>
+          <div style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 12,
+            padding: 14,
+            background: "#f9fafb",
+            display: "grid",
+            gridTemplateColumns: "minmax(220px, 1fr) 130px 140px auto",
+            gap: 10,
+            alignItems: "end",
+            marginBottom: 16
+          }}>
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
+                Agent ID
+              </div>
+              <input
+                value={observabilityAgentId}
+                onChange={(e) => setObservabilityAgentId(e.target.value)}
+                placeholder="e.g. support-agent"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  fontSize: 13
+                }}
+              />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
+                Period
+              </div>
+              <select
+                value={observabilityPeriod}
+                onChange={(e) => setObservabilityPeriod(e.target.value as MetricsPeriod)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  background: "white"
+                }}
+              >
+                <option value="hour">Hour</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+              </select>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
+                Logs Limit
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={observabilityLimit}
+                onChange={(e) => setObservabilityLimit(Number.parseInt(e.target.value || "100", 10) || 100)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  fontSize: 13
+                }}
+              />
+            </div>
+
+            <button
+              onClick={() => { void loadObservability(); }}
+              disabled={observabilityLoading}
+              style={{
+                padding: "10px 16px",
+                background: "#0f766e",
+                color: "white",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: observabilityLoading ? "not-allowed" : "pointer",
+                opacity: observabilityLoading ? 0.7 : 1,
+                height: 40
+              }}
+            >
+              {observabilityLoading ? "Loading..." : "Load"}
+            </button>
+          </div>
+
+          {observabilityError && (
+            <div style={{
+              border: "1px solid #fca5a5",
+              borderRadius: 12,
+              padding: 12,
+              background: "#fef2f2",
+              color: "#991b1b",
+              fontSize: 13,
+              marginBottom: 16
+            }}>
+              {observabilityError}
+            </div>
+          )}
+
+          {agentMetrics && (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gap: 10,
+              marginBottom: 16
+            }}>
+              <MetricCard label="Total Actions" value={String(agentMetrics.total_actions)} />
+              <MetricCard label="Blocked" value={`${agentMetrics.blocked_actions} (${blockedPct}%)`} />
+              <MetricCard label="Spend (USD)" value={`$${Number(agentMetrics.total_spend_usd || 0).toFixed(2)}`} />
+              <MetricCard label="Period" value={String(agentMetrics.period || "").toUpperCase()} />
+            </div>
+          )}
+
+          {agentMetrics?.top_tools && agentMetrics.top_tools.length > 0 && (
+            <div style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              padding: 14,
+              background: "white",
+              marginBottom: 16
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#666", textTransform: "uppercase", marginBottom: 10 }}>
+                Top Tools
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {agentMetrics.top_tools.map((item) => (
+                  <div
+                    key={`${item.tool}-${item.count}`}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      background: "#ecfeff",
+                      border: "1px solid #a5f3fc",
+                      color: "#155e75",
+                      fontSize: 12,
+                      fontWeight: 600
+                    }}
+                  >
+                    {item.tool}: {item.count}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 12,
+            background: "white",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              padding: "12px 14px",
+              borderBottom: "1px solid #e5e7eb",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#666",
+              textTransform: "uppercase"
+            }}>
+              Agent Logs ({agentLogs.length})
+            </div>
+
+            {agentLogs.length === 0 ? (
+              <div style={{ padding: 16, fontSize: 13, color: "#6b7280" }}>
+                {observabilityLoading ? "Loading logs..." : "No logs yet for this agent."}
+              </div>
+            ) : (
+              <div style={{ display: "grid" }}>
+                {agentLogs.map((log, idx) => {
+                  const decision = normalizeDecision(log);
+                  const c = decisionColors(decision);
+                  return (
+                    <div
+                      key={`${String(log.ts)}-${idx}-${log.tool || "unknown"}`}
+                      style={{
+                        padding: "12px 14px",
+                        borderBottom: idx === agentLogs.length - 1 ? "none" : "1px solid #f3f4f6",
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto",
+                        gap: 10
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>
+                            {log.tool || "unknown_tool"}
+                          </span>
+                          <span
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: 999,
+                              background: c.bg,
+                              border: `1px solid ${c.border}`,
+                              color: c.color,
+                              fontSize: 11,
+                              fontWeight: 700
+                            }}
+                          >
+                            {decision}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.45 }}>
+                          <strong>Reason:</strong> {log.policy_reason || log.reason || "—"}
+                          {log.args_hash ? <> · <strong>Args:</strong> <code>{log.args_hash}</code></> : null}
+                          {typeof log.spend_usd === "number" ? <> · <strong>Spend:</strong> ${log.spend_usd.toFixed(4)}</> : null}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>
+                        {formatLogTimestamp(log.ts)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32, paddingBottom: 60 }}>
       {/* --- HEADER --- */}
@@ -557,32 +1075,26 @@ export default function GovPage() {
           borderRadius: 16,
           border: "1px solid #eee"
         }} />
-      ) : !isPro ? (
+      ) : showContent ? (
         <div style={{
-          border: "1px solid #fca5a5",
+          border: "1px solid #e5e7eb",
           borderRadius: 16,
           padding: 20,
-          background: "#fef2f2"
+          background: "#f9fafb"
         }}>
-          <div style={{ fontWeight: 700, color: "#991b1b", marginBottom: 8 }}>
-            Governance Features Require Pro Plan
+          <div style={{ fontWeight: 700, color: "#111827", marginBottom: 8 }}>
+            Governance Access: {planTier.toUpperCase()}
           </div>
-          <div style={{ fontSize: 13, color: "#7f1d1d", marginBottom: 12 }}>
-            Tools registry and agent policies are only available for Pro and Agency plans.
+          <div style={{ fontSize: 13, color: "#4b5563", marginBottom: 6 }}>
+            Tools and policy basics are available on all plans. Agent observability is Pro+.
           </div>
-          <button style={{
-            padding: "8px 16px",
-            background: "#dc2626",
-            color: "white",
-            border: "none",
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "background 0.2s"
-          }} onMouseOver={(e) => { (e.target as HTMLButtonElement).style.background = "#b91c1c"; }} onMouseOut={(e) => { (e.target as HTMLButtonElement).style.background = "#dc2626"; }}>
-            Upgrade to Pro
-          </button>
+          <div style={{ fontSize: 12, color: "#6b7280" }}>
+            {planTier === "free"
+              ? "Free: allowed/blocked tools only. Caps start on Starter. Pricing rules and templates start on Pro."
+              : planTier === "starter"
+                ? "Starter: actions/spend/calls caps are enabled. Pricing rules and templates require Pro."
+                : "Pro/Agency: full policy controls are available."}
+          </div>
         </div>
       ) : null}
 
@@ -590,10 +1102,10 @@ export default function GovPage() {
       {showContent && (
         <>
           <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #eee" }}>
-            {["tools", "policies"].map((tab) => (
+            {["tools", "policies", "observability"].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab as "tools" | "policies")}
+                onClick={() => setActiveTab(tab as "tools" | "policies" | "observability")}
                 style={{
                   padding: "12px 20px",
                   background: "transparent",
@@ -616,6 +1128,7 @@ export default function GovPage() {
           <div style={{ paddingTop: 20 }}>
             {activeTab === "tools" && toolsSection}
             {activeTab === "policies" && policiesSection}
+            {activeTab === "observability" && observabilitySection}
           </div>
         </>
       )}
@@ -729,6 +1242,10 @@ export default function GovPage() {
           formData={policyFormData}
           onFormDataChange={setPolicyFormData}
           allTools={allTools}
+          planTier={planTier}
+          canUseCaps={isStarterPlus}
+          canUseTemplates={isProPlus}
+          canUsePricingRules={isProPlus}
           template={policyTemplate}
           onTemplateChange={setPolicyTemplate}
           loading={policyLoading}
@@ -738,14 +1255,33 @@ export default function GovPage() {
             setPolicyLoading(true);
             setPolicyError("");
             try {
+              const callsCapsParsed = parseMaxCallsPerToolText(policyFormData.max_calls_per_tool_text);
+              if (callsCapsParsed.error) {
+                setPolicyError(callsCapsParsed.error);
+                return;
+              }
+              const pricingRulesParsed = parsePricingRulesText(policyFormData.pricing_rules_text);
+              if (pricingRulesParsed.error) {
+                setPolicyError(pricingRulesParsed.error);
+                return;
+              }
+
               const overrides = {
                 allowed_tools: policyFormData.allowed_tools.length > 0 ? policyFormData.allowed_tools : undefined,
                 blocked_tools: policyFormData.blocked_tools.length > 0 ? policyFormData.blocked_tools : undefined,
-                max_actions_per_hour: policyFormData.max_actions_per_hour > 0 ? policyFormData.max_actions_per_hour : undefined,
-                max_spend_usd_per_day: policyFormData.max_spend_usd_per_day > 0 ? policyFormData.max_spend_usd_per_day : undefined,
+                max_actions_per_hour:
+                  isStarterPlus && policyFormData.max_actions_per_hour > 0
+                    ? policyFormData.max_actions_per_hour
+                    : undefined,
+                max_spend_usd_per_day:
+                  isStarterPlus && policyFormData.max_spend_usd_per_day > 0
+                    ? policyFormData.max_spend_usd_per_day
+                    : undefined,
+                max_calls_per_tool: isStarterPlus ? callsCapsParsed.value : undefined,
+                pricing_rules: isProPlus ? pricingRulesParsed.value : undefined,
               };
 
-              if (policyTemplate !== "custom") {
+              if (isProPlus && policyTemplate !== "custom") {
                 await createPolicyFromTemplate(agentId, policyTemplate, overrides);
               } else {
                 await upsertPolicy(agentId, {
@@ -953,6 +1489,26 @@ function truncateUrl(url: string): string {
     return url.substring(0, 47) + "...";
   }
   return url;
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: 10,
+        padding: 12,
+        background: "white"
+      }}
+    >
+      <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>
+        {value}
+      </div>
+    </div>
+  );
 }
 
 // ==================== MODALS ====================
@@ -1279,6 +1835,10 @@ function CreatePolicyModal({
   formData,
   onFormDataChange,
   allTools,
+  planTier,
+  canUseCaps,
+  canUseTemplates,
+  canUsePricingRules,
   template,
   onTemplateChange,
   loading,
@@ -1288,11 +1848,15 @@ function CreatePolicyModal({
 }: {
   agentId: string;
   onAgentIdChange: (value: string) => void;
-  formData: any;
-  onFormDataChange: (value: any) => void;
+  formData: PolicyFormData;
+  onFormDataChange: (value: PolicyFormData) => void;
   allTools: ToolListItem[];
-  template: "custom" | "strict" | "moderate" | "permissive" | "read_only" | "support_bot";
-  onTemplateChange: (value: "custom" | "strict" | "moderate" | "permissive" | "read_only" | "support_bot") => void;
+  planTier: PlanTier;
+  canUseCaps: boolean;
+  canUseTemplates: boolean;
+  canUsePricingRules: boolean;
+  template: PolicyTemplate;
+  onTemplateChange: (value: PolicyTemplate) => void;
   loading: boolean;
   error: string;
   onClose: () => void;
@@ -1328,14 +1892,17 @@ function CreatePolicyModal({
           </label>
           <select
             value={template}
-            onChange={(e) => onTemplateChange(e.target.value as any)}
+            onChange={(e) => onTemplateChange(e.target.value as PolicyTemplate)}
+            disabled={!canUseTemplates}
             style={{
               width: "100%",
               padding: "10px 12px",
               border: "1px solid #ddd",
               borderRadius: 8,
               fontSize: 13,
-              background: "white",
+              background: canUseTemplates ? "white" : "#f9fafb",
+              color: canUseTemplates ? "#111" : "#9ca3af",
+              cursor: canUseTemplates ? "pointer" : "not-allowed",
             }}
           >
             <option value="custom">Custom (no template)</option>
@@ -1346,7 +1913,9 @@ function CreatePolicyModal({
             <option value="support_bot">Support Bot</option>
           </select>
           <div style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
-            Selecting a template will apply default limits. You can still add overrides below.
+            {canUseTemplates
+              ? "Selecting a template applies default limits. You can still add overrides below."
+              : `Policy templates are available on Pro and Agency. Current plan: ${planTier.toUpperCase()}.`}
           </div>
         </div>
 
@@ -1419,22 +1988,42 @@ function CreatePolicyModal({
         </div>
 
         <FormField
-          label="Max Actions Per Hour (optional)"
+          label="Max Actions Per Hour (Starter+)"
           value={String(formData.max_actions_per_hour || "")}
           onChange={(value) => onFormDataChange({ ...formData, max_actions_per_hour: parseInt(value) || 0 })}
           type="number"
           min="0"
           placeholder="e.g., 1000"
+          disabled={!canUseCaps}
         />
 
         <FormField
-          label="Max Spend USD Per Day (optional)"
+          label="Max Spend USD Per Day (Starter+)"
           value={String(formData.max_spend_usd_per_day || "")}
           onChange={(value) => onFormDataChange({ ...formData, max_spend_usd_per_day: parseFloat(value) || 0 })}
           type="number"
           min="0"
           step="0.01"
           placeholder="e.g., 100.00"
+          disabled={!canUseCaps}
+        />
+
+        <FormField
+          label="Max Calls Per Tool (Starter+, one per line: tool:count)"
+          value={formData.max_calls_per_tool_text}
+          onChange={(value) => onFormDataChange({ ...formData, max_calls_per_tool_text: value })}
+          as="textarea"
+          placeholder={"search_docs:20\nsend_email:5"}
+          disabled={!canUseCaps}
+        />
+
+        <FormField
+          label="Pricing Rules (Pro+, one per line: tool:price)"
+          value={formData.pricing_rules_text}
+          onChange={(value) => onFormDataChange({ ...formData, pricing_rules_text: value })}
+          as="textarea"
+          placeholder={"search_docs:0.01\nsend_email:0.03"}
+          disabled={!canUsePricingRules}
         />
 
         <div style={{ display: "flex", gap: 8 }}>
@@ -1531,7 +2120,8 @@ function FormField({
   disabled?: boolean;
   [key: string]: any;
 }) {
-  const isTextarea = props.as === "textarea";
+  const { as, ...inputProps } = props;
+  const isTextarea = as === "textarea";
   const InputComponent = isTextarea ? "textarea" : "input";
 
   return (
@@ -1556,7 +2146,7 @@ function FormField({
           cursor: disabled ? "not-allowed" : "text",
           resize: isTextarea ? "vertical" : "none"
         }}
-        {...(isTextarea ? {} : props)}
+        {...inputProps}
       />
     </div>
   );

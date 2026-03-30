@@ -108,6 +108,7 @@ export default function OverviewPage() {
   const rateLimited = me.error?.status === 429 || usage.error?.status === 429;
   const inactive = me.data ? !me.data.is_active : false;
   const isFreePlan = (me.data?.plan ?? "free") === "free";
+  const isPaidPlan = !isFreePlan;
 
   // show upgrade buttons only when user is on free and not blocked by errors
   const showUpgradeButtons =
@@ -117,6 +118,12 @@ export default function OverviewPage() {
 
   const makeUsageValue = usage.data?.make.usage ?? 0;
   const aiUsageValue = usage.data?.ai?.charged_total_month ?? usage.data?.ai?.usage ?? 0;
+  const makeLimitValue = usage.data?.make.limit ?? 0;
+  const aiLimitValue = usage.data?.ai?.limit ?? 0;
+  const isMakeSoftOverLimit = makeLimitValue > 0 && makeUsageValue > makeLimitValue;
+  const isAiSoftOverLimit = aiLimitValue > 0 && aiUsageValue > aiLimitValue;
+  const showSoftOverLimitBadge =
+    !me.loading && !usage.loading && isPaidPlan && (isMakeSoftOverLimit || isAiSoftOverLimit);
 
   const showMakeFirst = makeUsageValue > aiUsageValue;
   const globalToggleOn = !!notifyEnabled;
@@ -367,6 +374,24 @@ export default function OverviewPage() {
           <div style={{ fontWeight: 800, color: "#111", fontSize: 18, textTransform: "capitalize" }}>
             {me.loading ? "···" : me.data?.plan ?? "Free"}
           </div>
+          {showSoftOverLimitBadge && (
+            <div
+              style={{
+                display: "inline-flex",
+                marginTop: 8,
+                padding: "4px 10px",
+                borderRadius: 999,
+                border: "1px solid #fcd34d",
+                background: "#fffbeb",
+                color: "#92400e",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.01em",
+              }}
+            >
+              Plan limit exceeded, protection still active.
+            </div>
+          )}
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase" }}>API Key Preview</div>
