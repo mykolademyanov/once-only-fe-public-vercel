@@ -47,8 +47,26 @@ type AgentMetricsRecord = {
   top_tools: Array<{ tool: string; count: number }>;
 };
 
+const POLICY_TEMPLATE_DEFAULTS: Record<
+  Exclude<PolicyTemplate, "custom">,
+  Pick<PolicyFormData, "max_actions_per_hour" | "max_spend_usd_per_day">
+> = {
+  strict: { max_actions_per_hour: 50, max_spend_usd_per_day: 2 },
+  moderate: { max_actions_per_hour: 200, max_spend_usd_per_day: 10 },
+  permissive: { max_actions_per_hour: 1000, max_spend_usd_per_day: 50 },
+  read_only: { max_actions_per_hour: 200, max_spend_usd_per_day: 0 },
+  support_bot: { max_actions_per_hour: 500, max_spend_usd_per_day: 10 },
+};
+
+const TOOL_LIMITS_BY_PLAN: Record<PlanTier, number> = {
+  free: 1,
+  starter: 20,
+  pro: 100,
+  agency: 1000,
+};
+
 function normalizePlan(plan: string | null | undefined): PlanTier {
-  const p = String(plan || "free").toLowerCase();
+  const p = String(plan || "free").trim().toLowerCase();
   if (p === "starter" || p === "pro" || p === "agency") return p;
   return "free";
 }
@@ -256,6 +274,11 @@ export default function GovPage() {
 
   // Get all tools for policy selection
   const allTools = Object.values(toolsGrouped.data || {}).flat();
+  const toolsLimit = TOOL_LIMITS_BY_PLAN[planTier];
+  const toolsUsed = allTools.length;
+  const toolsRemaining = Math.max(0, toolsLimit - toolsUsed);
+  const toolsLimitReached = toolsUsed >= toolsLimit;
+  const toolsUsagePercent = toolsLimit > 0 ? Math.min(100, Math.round((toolsUsed / toolsLimit) * 100)) : 0;
 
   const loadPolicy = async (id: string) => {
     if (!id) return;
@@ -313,20 +336,62 @@ export default function GovPage() {
           <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
             Manage custom tools for your agents. Tools are grouped by scope.
           </p>
+          <div style={{
+            marginTop: 10,
+            marginLeft: 14,
+            border: "1px solid #e5e7eb",
+            borderRadius: 10,
+            padding: "10px 12px",
+            background: toolsLimitReached ? "#fffbeb" : "#f8fafc",
+            maxWidth: 420
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase" }}>
+                Tools Limit
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: toolsLimitReached ? "#92400e" : "#111827" }}>
+                {toolsUsed} / {toolsLimit} used
+              </div>
+            </div>
+            <div style={{ height: 7, borderRadius: 999, background: "#e5e7eb", overflow: "hidden", marginBottom: 6 }}>
+              <div
+                style={{
+                  width: `${toolsUsagePercent}%`,
+                  height: "100%",
+                  background: toolsLimitReached ? "#f59e0b" : "#111827",
+                  transition: "width 0.2s ease"
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 12, color: toolsLimitReached ? "#92400e" : "#475569" }}>
+              {toolsLimitReached
+                ? "Plan tool limit reached. Upgrade plan to add more tools."
+                : `${toolsRemaining} tool ${toolsRemaining === 1 ? "slot" : "slots"} remaining in this plan.`}
+            </div>
+          </div>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
+          disabled={toolsLimitReached}
+          title={toolsLimitReached ? `Tool limit reached (${toolsUsed}/${toolsLimit}). Upgrade plan to add more.` : undefined}
           style={{
             padding: "10px 16px",
-            background: "#111",
+            background: toolsLimitReached ? "#9ca3af" : "#111",
             color: "white",
             border: "none",
             borderRadius: 8,
             fontSize: 13,
             fontWeight: 600,
-            cursor: "pointer",
+            cursor: toolsLimitReached ? "not-allowed" : "pointer",
+            opacity: toolsLimitReached ? 0.85 : 1,
             transition: "background 0.2s"
-          }} onMouseOver={(e) => { (e.target as HTMLButtonElement).style.background = "#333"; }} onMouseOut={(e) => { (e.target as HTMLButtonElement).style.background = "#111"; }}>
+          }} onMouseOver={(e) => {
+            if (toolsLimitReached) return;
+            (e.target as HTMLButtonElement).style.background = "#333";
+          }} onMouseOut={(e) => {
+            if (toolsLimitReached) return;
+            (e.target as HTMLButtonElement).style.background = "#111";
+          }}>
           + Create Tool
         </button>
       </div>
@@ -460,17 +525,20 @@ export default function GovPage() {
               </div>
               <button
                 onClick={() => setShowCreateModal(true)}
+                disabled={toolsLimitReached}
+                title={toolsLimitReached ? `Tool limit reached (${toolsUsed}/${toolsLimit}). Upgrade plan to add more.` : undefined}
                 style={{
                   padding: "10px 16px",
-                  background: "#111",
+                  background: toolsLimitReached ? "#9ca3af" : "#111",
                   color: "white",
                   border: "none",
                   borderRadius: 8,
                   fontSize: 13,
                   fontWeight: 600,
-                  cursor: "pointer"
+                  cursor: toolsLimitReached ? "not-allowed" : "pointer",
+                  opacity: toolsLimitReached ? 0.85 : 1
                 }}>
-                Create First Tool
+                {toolsLimitReached ? "Tool Limit Reached" : "Create First Tool"}
               </button>
             </div>
           )}
@@ -1862,6 +1930,58 @@ function CreatePolicyModal({
   onClose: () => void;
   onSubmit: () => Promise<void>;
 }) {
+  const lockedFeatures: string[] = [];
+  if (!canUseCaps) lockedFeatures.push("Action / spend / per-tool caps");
+  if (!canUseTemplates) lockedFeatures.push("Policy templates");
+  if (!canUsePricingRules) lockedFeatures.push("Pricing rules");
+
+  const handleTemplateChange = (nextTemplate: PolicyTemplate) => {
+    onTemplateChange(nextTemplate);
+    if (nextTemplate === "custom") return;
+    const preset = POLICY_TEMPLATE_DEFAULTS[nextTemplate];
+    if (!preset) return;
+    onFormDataChange({
+      ...formData,
+      max_actions_per_hour: preset.max_actions_per_hour,
+      max_spend_usd_per_day: preset.max_spend_usd_per_day,
+    });
+  };
+
+  const renderToolSelector = (
+    title: string,
+    selected: string[],
+    onToggle: (toolName: string, checked: boolean) => void
+  ) => (
+    <div>
+      <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+        {title}
+      </label>
+      <div style={{
+        border: "1px solid #ddd",
+        borderRadius: 8,
+        padding: 12,
+        maxHeight: 150,
+        overflowY: "auto",
+        background: "#f9f9f9"
+      }}>
+        {allTools.length === 0 ? (
+          <div style={{ fontSize: 12, color: "#999" }}>No tools available</div>
+        ) : (
+          allTools.map((tool) => (
+            <label key={`${title}-${tool.name}`} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={selected.includes(tool.name)}
+                onChange={(e) => onToggle(tool.name, e.target.checked)}
+              />
+              <span style={{ fontSize: 12 }}>{tool.name}</span>
+            </label>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <Modal onClose={onClose} title="Create Agent Policy">
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1886,145 +2006,219 @@ function CreatePolicyModal({
           required
         />
 
-        <div>
-          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-            Template
-          </label>
-          <select
-            value={template}
-            onChange={(e) => onTemplateChange(e.target.value as PolicyTemplate)}
-            disabled={!canUseTemplates}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              fontSize: 13,
-              background: canUseTemplates ? "white" : "#f9fafb",
-              color: canUseTemplates ? "#111" : "#9ca3af",
-              cursor: canUseTemplates ? "pointer" : "not-allowed",
-            }}
-          >
-            <option value="custom">Custom (no template)</option>
-            <option value="strict">Strict</option>
-            <option value="moderate">Moderate</option>
-            <option value="permissive">Permissive</option>
-            <option value="read_only">Read Only</option>
-            <option value="support_bot">Support Bot</option>
-          </select>
-          <div style={{ fontSize: 11, color: "#777", marginTop: 6 }}>
-            {canUseTemplates
-              ? "Selecting a template applies default limits. You can still add overrides below."
-              : `Policy templates are available on Pro and Agency. Current plan: ${planTier.toUpperCase()}.`}
+        <div style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          background: "#f8fafc",
+          padding: 12
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            <span style={{
+              padding: "4px 8px",
+              borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              background: "#e2e8f0",
+              color: "#0f172a",
+              textTransform: "uppercase"
+            }}>
+              Current plan: {planTier.toUpperCase()}
+            </span>
+            <span style={{
+              padding: "4px 8px",
+              borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              background: canUseTemplates ? "#dcfce7" : "#fef3c7",
+              color: canUseTemplates ? "#166534" : "#92400e",
+              textTransform: "uppercase"
+            }}>
+              {canUseTemplates ? "Pro+ capabilities active" : "Pro+ unlocks templates & pricing"}
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+            Configure what this agent can do right now. Locked controls are grouped below.
           </div>
         </div>
 
-        <div>
-          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-            Allowed Tools (select tools this agent CAN use)
-          </label>
-          <div style={{
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            padding: 12,
-            maxHeight: 150,
-            overflowY: "auto",
-            background: "#f9f9f9"
-          }}>
-            {allTools.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#999" }}>No tools available</div>
-            ) : (
-              allTools.map((tool) => (
-                <label key={tool.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={formData.allowed_tools.includes(tool.name)}
-                    onChange={(e) => {
-                      const newAllowed = e.target.checked
-                        ? [...formData.allowed_tools, tool.name]
-                        : formData.allowed_tools.filter((t: string) => t !== tool.name);
-                      onFormDataChange({ ...formData, allowed_tools: newAllowed });
-                    }}
-                  />
-                  <span style={{ fontSize: 12 }}>{tool.name}</span>
-                </label>
-              ))
+        <div style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          padding: 12,
+          background: "white"
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#166534", textTransform: "uppercase", marginBottom: 10 }}>
+            Available on your plan
+          </div>
+
+          {canUseTemplates && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                Template
+              </label>
+              <select
+                value={template}
+                onChange={(e) => handleTemplateChange(e.target.value as PolicyTemplate)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  background: "white",
+                  color: "#111",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="custom">Custom (no template)</option>
+                <option value="strict">Strict</option>
+                <option value="moderate">Moderate</option>
+                <option value="permissive">Permissive</option>
+                <option value="read_only">Read Only</option>
+                <option value="support_bot">Support Bot</option>
+              </select>
+              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 6 }}>
+                Selecting a template pre-fills action and spend caps.
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "grid", gap: 14 }}>
+            {renderToolSelector(
+              "Allowed Tools",
+              formData.allowed_tools,
+              (toolName, checked) => {
+                const next = checked
+                  ? [...formData.allowed_tools, toolName]
+                  : formData.allowed_tools.filter((t: string) => t !== toolName);
+                onFormDataChange({ ...formData, allowed_tools: next });
+              }
+            )}
+
+            {renderToolSelector(
+              "Blocked Tools",
+              formData.blocked_tools,
+              (toolName, checked) => {
+                const next = checked
+                  ? [...formData.blocked_tools, toolName]
+                  : formData.blocked_tools.filter((t: string) => t !== toolName);
+                onFormDataChange({ ...formData, blocked_tools: next });
+              }
+            )}
+
+            {canUseCaps && (
+              <>
+                <FormField
+                  label="Max Actions Per Hour"
+                  value={String(formData.max_actions_per_hour || "")}
+                  onChange={(value) => onFormDataChange({ ...formData, max_actions_per_hour: parseInt(value) || 0 })}
+                  type="number"
+                  min="0"
+                  placeholder="e.g., 1000"
+                />
+
+                <FormField
+                  label="Max Spend USD Per Day"
+                  value={String(formData.max_spend_usd_per_day || "")}
+                  onChange={(value) => onFormDataChange({ ...formData, max_spend_usd_per_day: parseFloat(value) || 0 })}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g., 100.00"
+                />
+
+                <FormField
+                  label="Max Calls Per Tool (one per line: tool:count)"
+                  value={formData.max_calls_per_tool_text}
+                  onChange={(value) => onFormDataChange({ ...formData, max_calls_per_tool_text: value })}
+                  as="textarea"
+                  placeholder={"search_docs:20\nsend_email:5"}
+                />
+              </>
+            )}
+
+            {canUsePricingRules && (
+              <FormField
+                label="Pricing Rules (one per line: tool:price)"
+                value={formData.pricing_rules_text}
+                onChange={(value) => onFormDataChange({ ...formData, pricing_rules_text: value })}
+                as="textarea"
+                placeholder={"search_docs:0.01\nsend_email:0.03"}
+              />
             )}
           </div>
         </div>
 
-        <div>
-          <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-            Blocked Tools (select tools this agent CANNOT use)
-          </label>
+        {lockedFeatures.length > 0 && (
           <div style={{
-            border: "1px solid #ddd",
-            borderRadius: 8,
+            border: "1px solid #fcd34d",
+            borderRadius: 10,
             padding: 12,
-            maxHeight: 150,
-            overflowY: "auto",
-            background: "#f9f9f9"
+            background: "#fffbeb"
           }}>
-            {allTools.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#999" }}>No tools available</div>
-            ) : (
-              allTools.map((tool) => (
-                <label key={`blocked-${tool.name}`} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={formData.blocked_tools.includes(tool.name)}
-                    onChange={(e) => {
-                      const newBlocked = e.target.checked
-                        ? [...formData.blocked_tools, tool.name]
-                        : formData.blocked_tools.filter((t: string) => t !== tool.name);
-                      onFormDataChange({ ...formData, blocked_tools: newBlocked });
-                    }}
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e", textTransform: "uppercase", marginBottom: 6 }}>
+              Locked on current plan
+            </div>
+            <div style={{ fontSize: 12, color: "#92400e", marginBottom: 10, lineHeight: 1.45 }}>
+              {lockedFeatures.join(" • ")}
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              {!canUseTemplates && (
+                <div>
+                  <FormField
+                    label="Template"
+                    value={template}
+                    disabled
                   />
-                  <span style={{ fontSize: 12 }}>{tool.name}</span>
-                </label>
-              ))
-            )}
+                  <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>
+                    Available in Pro+
+                  </div>
+                </div>
+              )}
+
+              {!canUseCaps && (
+                <>
+                  <FormField
+                    label="Max Actions Per Hour"
+                    value={String(formData.max_actions_per_hour || "")}
+                    disabled
+                  />
+                  <FormField
+                    label="Max Spend USD Per Day"
+                    value={String(formData.max_spend_usd_per_day || "")}
+                    disabled
+                  />
+                  <FormField
+                    label="Max Calls Per Tool (one per line: tool:count)"
+                    value={formData.max_calls_per_tool_text}
+                    as="textarea"
+                    disabled
+                  />
+                  <div style={{ fontSize: 11, color: "#92400e", marginTop: -4 }}>
+                    Available in Starter+
+                  </div>
+                </>
+              )}
+
+              {!canUsePricingRules && (
+                <div>
+                  <FormField
+                    label="Pricing Rules (one per line: tool:price)"
+                    value={formData.pricing_rules_text}
+                    as="textarea"
+                    disabled
+                  />
+                  <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>
+                    Available in Pro+
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-
-        <FormField
-          label="Max Actions Per Hour (Starter+)"
-          value={String(formData.max_actions_per_hour || "")}
-          onChange={(value) => onFormDataChange({ ...formData, max_actions_per_hour: parseInt(value) || 0 })}
-          type="number"
-          min="0"
-          placeholder="e.g., 1000"
-          disabled={!canUseCaps}
-        />
-
-        <FormField
-          label="Max Spend USD Per Day (Starter+)"
-          value={String(formData.max_spend_usd_per_day || "")}
-          onChange={(value) => onFormDataChange({ ...formData, max_spend_usd_per_day: parseFloat(value) || 0 })}
-          type="number"
-          min="0"
-          step="0.01"
-          placeholder="e.g., 100.00"
-          disabled={!canUseCaps}
-        />
-
-        <FormField
-          label="Max Calls Per Tool (Starter+, one per line: tool:count)"
-          value={formData.max_calls_per_tool_text}
-          onChange={(value) => onFormDataChange({ ...formData, max_calls_per_tool_text: value })}
-          as="textarea"
-          placeholder={"search_docs:20\nsend_email:5"}
-          disabled={!canUseCaps}
-        />
-
-        <FormField
-          label="Pricing Rules (Pro+, one per line: tool:price)"
-          value={formData.pricing_rules_text}
-          onChange={(value) => onFormDataChange({ ...formData, pricing_rules_text: value })}
-          as="textarea"
-          placeholder={"search_docs:0.01\nsend_email:0.03"}
-          disabled={!canUsePricingRules}
-        />
+        )}
 
         <div style={{ display: "flex", gap: 8 }}>
           <button
