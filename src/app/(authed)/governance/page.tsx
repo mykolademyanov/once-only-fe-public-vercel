@@ -1135,37 +1135,6 @@ export default function GovPage() {
         </div>
       </div>
 
-      {/* --- PLAN CHECK --- */}
-      {me.loading ? (
-        <div style={{
-          height: 80,
-          background: "#f3f4f6",
-          borderRadius: 16,
-          border: "1px solid #eee"
-        }} />
-      ) : showContent ? (
-        <div style={{
-          border: "1px solid #e5e7eb",
-          borderRadius: 16,
-          padding: 20,
-          background: "#f9fafb"
-        }}>
-          <div style={{ fontWeight: 700, color: "#111827", marginBottom: 8 }}>
-            Governance Access: {planTier.toUpperCase()}
-          </div>
-          <div style={{ fontSize: 13, color: "#4b5563", marginBottom: 6 }}>
-            Tools and policy basics are available on all plans. Agent observability is Pro+.
-          </div>
-          <div style={{ fontSize: 12, color: "#6b7280" }}>
-            {planTier === "free"
-              ? "Free: allowed/blocked tools only. Caps start on Starter. Pricing rules and templates start on Pro."
-              : planTier === "starter"
-                ? "Starter: actions/spend/calls caps are enabled. Pricing rules and templates require Pro."
-                : "Pro/Agency: full policy controls are available."}
-          </div>
-        </div>
-      ) : null}
-
       {/* --- TABS --- */}
       {showContent && (
         <>
@@ -2006,42 +1975,44 @@ function CreatePolicyModal({
           required
         />
 
-        <div style={{
-          border: "1px solid #e5e7eb",
-          borderRadius: 10,
-          background: "#f8fafc",
-          padding: 12
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-            <span style={{
-              padding: "4px 8px",
-              borderRadius: 999,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.02em",
-              background: "#e2e8f0",
-              color: "#0f172a",
-              textTransform: "uppercase"
-            }}>
-              Current plan: {planTier.toUpperCase()}
-            </span>
-            <span style={{
-              padding: "4px 8px",
-              borderRadius: 999,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.02em",
-              background: canUseTemplates ? "#dcfce7" : "#fef3c7",
-              color: canUseTemplates ? "#166534" : "#92400e",
-              textTransform: "uppercase"
-            }}>
-              {canUseTemplates ? "Pro+ capabilities active" : "Pro+ unlocks templates & pricing"}
-            </span>
+        {!canUseTemplates && (
+          <div style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 10,
+            background: "#f8fafc",
+            padding: 12
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <span style={{
+                padding: "4px 8px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.02em",
+                background: "#e2e8f0",
+                color: "#0f172a",
+                textTransform: "uppercase"
+              }}>
+                Current plan: {planTier.toUpperCase()}
+              </span>
+              <span style={{
+                padding: "4px 8px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.02em",
+                background: "#fef3c7",
+                color: "#92400e",
+                textTransform: "uppercase"
+              }}>
+                Pro+ unlocks templates & pricing
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+              Configure what this agent can do right now. Locked controls are grouped below.
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
-            Configure what this agent can do right now. Locked controls are grouped below.
-          </div>
-        </div>
+        )}
 
         <div style={{
           border: "1px solid #e5e7eb",

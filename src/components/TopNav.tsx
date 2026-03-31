@@ -44,9 +44,8 @@ export default function TopNav() {
           <NavLink href="/overview" label="Overview" />
           <NavLink href="/events" label="Events" />
           <NavLink href="/run-debug" label="Run Debug" />
-          <NavLink href="/metrics" label="Metrics" />
-
           <NavLink href="/governance" label="Governance" />
+          <NavLink href="/metrics" label="Metrics" />
 
           <button
             onClick={() => {
