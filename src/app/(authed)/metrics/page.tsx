@@ -54,11 +54,14 @@ export default function MetricsPage() {
         <div style={{
           display: "flex",
           gap: 4,
+          flexWrap: "wrap",
           background: "#f5f5f5",
           padding: "4px 8px",
           borderRadius: 12,
           alignItems: "center",
-          border: "1px solid #eee"
+          border: "1px solid #eee",
+          width: "100%",
+          maxWidth: 360,
         }}>
            <input type="date" value={fromDay} onChange={e => setFromDay(e.target.value)} style={dateStyle} />
            <span style={{ color: "#aaa", fontWeight: 900 }}>→</span>

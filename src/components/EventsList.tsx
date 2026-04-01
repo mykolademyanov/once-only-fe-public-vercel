@@ -37,7 +37,9 @@ export default function EventsList({ items }: { items: EventItem[] }) {
         fontWeight: 800,
         display: "flex",
         justifyContent: "space-between",
-        alignItems: "center"
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 8,
       }}>
         <span>Latest Activity</span>
         <span style={{
@@ -72,6 +74,7 @@ export default function EventsList({ items }: { items: EventItem[] }) {
                 justifyContent: "space-between",
                 alignItems: "flex-start",
                 gap: 16,
+                flexWrap: "wrap",
               }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -131,11 +134,12 @@ export default function EventsList({ items }: { items: EventItem[] }) {
 
               {/* Time Column */}
               <div style={{
-                whiteSpace: "nowrap",
+                whiteSpace: "normal",
                 fontSize: 12,
                 color: "#999",
-                textAlign: "right",
-                fontVariantNumeric: "tabular-nums"
+                textAlign: "left",
+                fontVariantNumeric: "tabular-nums",
+                wordBreak: "break-word",
               }}>
                 {formatWhen(e)}
               </div>

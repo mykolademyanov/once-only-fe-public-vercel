@@ -426,7 +426,7 @@ export default function GovPage() {
       {toolsGrouped.loading ? (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
           gap: 16
         }}>
           {[1, 2, 3].map((i) => (
@@ -481,7 +481,7 @@ export default function GovPage() {
               ) : (
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
                   gap: 16
                 }}>
                   {tools.map((tool) => (
@@ -623,7 +623,7 @@ export default function GovPage() {
           </button>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
           {/* All Agents List */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#666", textTransform: "uppercase", marginBottom: 12 }}>
@@ -729,7 +729,7 @@ export default function GovPage() {
               {/* Limits */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
                 gap: 12,
                 padding: "12px 0",
                 borderTop: "1px solid #e0e7ff",
@@ -792,7 +792,7 @@ export default function GovPage() {
               </div>
 
               {/* Actions */}
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button
                   onClick={() => {
                     setAgentId(selectedPolicy.agent_id);
@@ -866,7 +866,7 @@ export default function GovPage() {
 
   const observabilitySection = (
     <section>
-      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 4, height: 20, background: "#0f766e", borderRadius: 2 }}></div>
@@ -896,7 +896,7 @@ export default function GovPage() {
             padding: 14,
             background: "#f9fafb",
             display: "grid",
-            gridTemplateColumns: "minmax(220px, 1fr) 130px 140px auto",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
             gap: 10,
             alignItems: "end",
             marginBottom: 16
@@ -998,7 +998,7 @@ export default function GovPage() {
           {agentMetrics && (
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
               gap: 10,
               marginBottom: 16
             }}>
@@ -1074,7 +1074,7 @@ export default function GovPage() {
                         padding: "12px 14px",
                         borderBottom: idx === agentLogs.length - 1 ? "none" : "1px solid #f3f4f6",
                         display: "grid",
-                        gridTemplateColumns: "1fr auto",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                         gap: 10
                       }}
                     >
@@ -1103,7 +1103,7 @@ export default function GovPage() {
                           {typeof log.spend_usd === "number" ? <> · <strong>Spend:</strong> ${log.spend_usd.toFixed(4)}</> : null}
                         </div>
                       </div>
-                      <div style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 11, color: "#6b7280", whiteSpace: "normal", wordBreak: "break-word" }}>
                         {formatLogTimestamp(log.ts)}
                       </div>
                     </div>
@@ -1120,7 +1120,7 @@ export default function GovPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32, paddingBottom: 60 }}>
       {/* --- HEADER --- */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-0.03em" }}>Governance</div>
           <div style={{ color: "#666", marginTop: 4, fontSize: 14 }}>
@@ -1138,13 +1138,13 @@ export default function GovPage() {
       {/* --- TABS --- */}
       {showContent && (
         <>
-          <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #eee" }}>
+          <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #eee", flexWrap: "wrap" }}>
             {["tools", "policies", "observability"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as "tools" | "policies" | "observability")}
                 style={{
-                  padding: "12px 20px",
+                  padding: "10px 14px",
                   background: "transparent",
                   border: "none",
                   borderBottom: activeTab === tab ? "3px solid #111" : "none",
@@ -1427,7 +1427,7 @@ function ToolCard({
       {/* Stats Grid */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
+        gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
         gap: 8,
         marginBottom: 12,
         padding: "12px 0",
@@ -1676,7 +1676,7 @@ function CreateToolModal({
           as="textarea"
         />
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             type="submit"
             disabled={loading}
@@ -1826,7 +1826,7 @@ function EditToolModal({
           placeholder="Leave empty to keep existing secret"
         />
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             type="submit"
             disabled={loading}
@@ -2191,7 +2191,7 @@ function CreatePolicyModal({
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             onClick={onSubmit}
             disabled={loading || !agentId}

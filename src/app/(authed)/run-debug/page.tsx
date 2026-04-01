@@ -132,7 +132,7 @@ export default function RunDebugPage() {
             placeholder="run_123"
             style={{
               flex: "1 1 300px",
-              minWidth: 240,
+              minWidth: 0,
               border: "1px solid #ddd",
               borderRadius: 10,
               padding: "10px 12px",
@@ -244,6 +244,7 @@ export default function RunDebugPage() {
                     display: "flex",
                     justifyContent: "space-between",
                     gap: 8,
+                    flexWrap: "wrap",
                   }}
                 >
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -267,7 +268,7 @@ export default function RunDebugPage() {
                       {run.last_type || "—"} · {run.events_count} events
                     </div>
                   </div>
-                  <div style={{ color: "#999", fontSize: 12, whiteSpace: "nowrap" }}>{formatTs(run.last_ts)}</div>
+                  <div style={{ color: "#999", fontSize: 12, whiteSpace: "normal", wordBreak: "break-word" }}>{formatTs(run.last_ts)}</div>
                 </button>
               );
             })}
@@ -308,6 +309,7 @@ export default function RunDebugPage() {
                   display: "flex",
                   justifyContent: "space-between",
                   gap: 12,
+                  flexWrap: "wrap",
                   background: isError ? "#fff7f7" : isSuccess ? "#f6fbf7" : "white",
                   borderLeft: isError ? "3px solid #efc9c9" : isSuccess ? "3px solid #cfe8d5" : "3px solid transparent",
                 }}
@@ -338,7 +340,7 @@ export default function RunDebugPage() {
                     </div>
                   ) : null}
                 </div>
-                <div style={{ whiteSpace: "nowrap", color: "#999", fontSize: 12 }}>{formatTs(event.ts)}</div>
+                <div style={{ whiteSpace: "normal", color: "#999", fontSize: 12, wordBreak: "break-word" }}>{formatTs(event.ts)}</div>
               </div>
                 );
               })()

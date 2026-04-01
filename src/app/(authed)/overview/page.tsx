@@ -326,7 +326,7 @@ export default function OverviewPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32, paddingBottom: 60 }}>
       {/* --- HEADER --- */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-0.03em" }}>Dashboard</div>
           <div style={{ color: "#666", marginTop: 4, fontSize: 14 }}>
@@ -362,7 +362,7 @@ export default function OverviewPage() {
       {/* --- ACCOUNT QUICK INFO --- */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
         gap: 16,
         background: "#f8f9fa",
         padding: "16px 20px",
@@ -393,7 +393,7 @@ export default function OverviewPage() {
             </div>
           )}
         </div>
-        <div style={{ textAlign: "right" }}>
+        <div style={{ textAlign: "left" }}>
           <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase" }}>API Key Preview</div>
           <code style={{ background: "#eee", padding: "4px 8px", borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
             {me.loading ? "········" : me.data?.key_preview ?? "—"}
@@ -410,6 +410,8 @@ export default function OverviewPage() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
+          flexWrap: "wrap",
+          gap: 12,
           padding: "12px 14px",
           background: "white",
           borderRadius: 16,
@@ -433,7 +435,7 @@ export default function OverviewPage() {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 250 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
             {renderNotifyToggle(
               "All Email Alerts",
               globalToggleOn,
