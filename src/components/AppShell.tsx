@@ -27,6 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (prevPathRef.current === pathname) return;
 
     prevPathRef.current = pathname;
+    setRouteLoading(true);
     if (fallbackTimerRef.current) {
       window.clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = null;

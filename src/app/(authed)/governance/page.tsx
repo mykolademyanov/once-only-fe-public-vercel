@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMe, useToolsGroupedByScope, ToolListItem } from "@/lib/hooks";
+import PageSpinner from "@/components/PageSpinner";
 import {
   upsertTool,
   deleteTool,
@@ -228,6 +229,11 @@ export default function GovPage() {
 
   // Show content for all plans (feature-level limits are enforced in forms/API)
   const showContent = !me.loading && !paymentRequired && !inactive && !rateLimited;
+  const initialLoading = (me.loading && !me.data) || (toolsGrouped.loading && !toolsGrouped.data);
+
+  if (initialLoading) {
+    return <PageSpinner fullScreen label="Loading governance..." />;
+  }
 
   // Auto-refresh data every 45 seconds
   useEffect(() => {

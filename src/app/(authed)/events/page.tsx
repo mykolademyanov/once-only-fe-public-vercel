@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import EventsList from "@/components/EventsList";
 import UpgradeBanner from "@/components/UpgradeBanner";
+import PageSpinner from "@/components/PageSpinner";
 import { apiGet } from "@/lib/api";
 import { useEvents, EventItem } from "@/lib/hooks";
 
@@ -69,6 +70,11 @@ export default function EventsPage() {
 
   const paymentRequired = events.error?.status === 402;
   const rateLimited = events.error?.status === 429;
+  const initialLoading = events.loading && !(events.data && events.data.length > 0);
+
+  if (initialLoading) {
+    return <PageSpinner fullScreen label="Loading events..." />;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

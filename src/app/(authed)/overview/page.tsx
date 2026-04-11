@@ -6,6 +6,7 @@ import ProgressBar from "@/components/ProgressBar";
 import StatCard from "@/components/StatCard";
 import UpgradeBanner from "@/components/UpgradeBanner";
 import InfoTip from "@/components/InfoTip";
+import PageSpinner from "@/components/PageSpinner";
 import { useMe, useUsage, useMetrics } from "@/lib/hooks";
 import { toISODate } from "@/lib/date";
 
@@ -46,6 +47,14 @@ export default function OverviewPage() {
     !me.loading && !usage.loading && isPaidPlan && (isMakeSoftOverLimit || isAiSoftOverLimit);
 
   const showMakeFirst = makeUsageValue > aiUsageValue;
+  const initialLoading =
+    (me.loading && !me.data) ||
+    (usage.loading && !usage.data) ||
+    (metrics.loading && !metrics.data);
+
+  if (initialLoading) {
+    return <PageSpinner fullScreen label="Loading overview..." />;
+  }
 
   const automationSection = (
     <section>
@@ -236,9 +245,6 @@ export default function OverviewPage() {
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
               API key preview, email settings, and alert toggles moved to Profile.
-            </div>
-            <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-              Keep Overview focused on usage and performance.
             </div>
           </div>
           <Link

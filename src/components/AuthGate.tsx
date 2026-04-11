@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getApiKey } from "@/lib/auth";
+import PageSpinner from "./PageSpinner";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -14,6 +15,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     else setReady(true);
   }, [router]);
 
-  if (!ready) return null;
+  if (!ready) return <PageSpinner fullScreen label="Loading dashboard..." />;
   return <>{children}</>;
 }

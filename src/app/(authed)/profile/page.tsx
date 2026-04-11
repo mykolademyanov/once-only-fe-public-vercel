@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import UpgradeBanner from "@/components/UpgradeBanner";
+import PageSpinner from "@/components/PageSpinner";
 import { apiPost } from "@/lib/api";
 import { useMe, useUsage } from "@/lib/hooks";
 
@@ -117,6 +118,11 @@ export default function ProfilePage() {
   const runToggleOn = !!runNotifyEnabled;
   const globalToggleDisabled = notifyEnabled === null || notifySavingKey !== null || me.loading;
   const channelToggleDisabled = !notifyEnabled || notifySavingKey !== null || me.loading;
+  const initialLoading = (me.loading && !me.data) || (usage.loading && !usage.data);
+
+  if (initialLoading) {
+    return <PageSpinner fullScreen label="Loading profile..." />;
+  }
 
   const renderNotifyToggle = (
     label: string,

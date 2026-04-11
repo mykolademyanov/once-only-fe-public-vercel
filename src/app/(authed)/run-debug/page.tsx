@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiGet } from "@/lib/api";
+import PageSpinner from "@/components/PageSpinner";
 
 type RunTimelineEvent = {
   id: number;
@@ -113,6 +114,11 @@ export default function RunDebugPage() {
   function onRunSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     void lookupRunTimeline(runIdInput);
+  }
+
+  const initialLoading = runsLoading && runs.length === 0 && !timeline && !runIdFromQuery;
+  if (initialLoading) {
+    return <PageSpinner fullScreen label="Loading run debug..." />;
   }
 
   return (

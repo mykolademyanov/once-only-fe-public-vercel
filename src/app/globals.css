@@ -3,7 +3,7 @@
 html, body { margin: 0; padding: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
 a { color: inherit; }
 body { overflow-x: hidden; }
-.topnav-toggle { display: none; }
+.topnav-toggle { display: inline-flex; }
 
 .page-spinner-ring {
   animation: page-spin 0.8s linear infinite;
@@ -12,6 +12,43 @@ body { overflow-x: hidden; }
 @keyframes page-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.topnav-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(320px, calc(100vw - 24px));
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  z-index: 40;
+}
+
+.topnav-menu-links {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+}
+
+.topnav-menu-link {
+  display: block;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  transition: background-color 0.18s ease;
+}
+
+.topnav-menu-link:hover {
+  background: #f3f4f6;
+}
+
+.topnav-menu-footer {
+  border-top: 1px solid #f1f5f9;
+  padding: 8px;
+  background: #fafafa;
 }
 
 @media (max-width: 820px) {
@@ -25,44 +62,13 @@ body { overflow-x: hidden; }
     position: relative;
   }
 
-  .topnav-nav {
-    display: none !important;
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 2px !important;
-    margin-top: 4px;
-    padding: 6px;
-    border: 1px solid #eee;
-    border-radius: 12px;
-    background: #fff;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  .topnav-brand {
+    font-size: 17px;
   }
 
-  .topnav-nav.is-open {
-    display: flex !important;
-  }
-
-  .topnav-link {
-    font-size: 13px !important;
-    padding: 8px 10px;
-    border-radius: 8px;
-  }
-
-  .topnav-link:hover {
-    background: #f8f8f8;
-  }
-
-  .topnav-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: auto;
-  }
-
-  .topnav-logout {
-    margin-left: 0;
-    width: 100%;
-    text-align: left;
+  .topnav-menu-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
   }
 }

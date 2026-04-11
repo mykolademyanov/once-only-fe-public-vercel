@@ -1,6 +1,7 @@
 "use client";
 
 import UpgradeBanner from "@/components/UpgradeBanner";
+import PageSpinner from "@/components/PageSpinner";
 import { useMetrics } from "@/lib/hooks";
 import { addDays, toISODate } from "@/lib/date";
 import { useMemo, useState } from "react";
@@ -40,6 +41,11 @@ export default function MetricsPage() {
   }, [metrics.data]);
 
   const isEmpty = data.length === 0 && !metrics.loading;
+  const initialLoading = metrics.loading && data.length === 0;
+
+  if (initialLoading) {
+    return <PageSpinner fullScreen label="Loading metrics..." />;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
