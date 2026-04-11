@@ -569,7 +569,7 @@ export default function GovPage() {
                         }}
                       >
                         {toolsToRender.map((tool) => (
-                          <div key={`${scopeId}-${tool.name}`} style={{ flex: "0 1 320px", minWidth: 260, width: "100%" }}>
+                          <div key={`${scopeId}-${tool.name}`} style={{ flex: "0 1 290px", minWidth: 250, maxWidth: 340 }}>
                             <ToolCard
                               tool={tool}
                               scopeId={scopeId}
@@ -1509,8 +1509,8 @@ function ToolCard({
       el.style.borderColor = "#eee";
     }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ flex: 1 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#111", marginBottom: 4 }}>
             {tool.name}
           </div>
@@ -1528,10 +1528,11 @@ function ToolCard({
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              width: "100%",
               maxWidth: "100%"
             }}
           >
-            {tool.url}
+            {truncateMiddle(tool.url, 64)}
           </a>
         </div>
         <div style={{
@@ -1677,6 +1678,14 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       </div>
     </div>
   );
+}
+
+function truncateMiddle(value: string, maxChars = 64): string {
+  const text = String(value || "");
+  if (text.length <= maxChars) return text;
+  const head = Math.max(10, Math.floor((maxChars - 1) / 2));
+  const tail = Math.max(10, maxChars - 1 - head);
+  return `${text.slice(0, head)}...${text.slice(text.length - tail)}`;
 }
 
 // ==================== MODALS ====================
