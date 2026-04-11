@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import ProgressBar from "@/components/ProgressBar";
 import StatCard from "@/components/StatCard";
@@ -7,15 +8,9 @@ import UpgradeBanner from "@/components/UpgradeBanner";
 import InfoTip from "@/components/InfoTip";
 import { useMe, useUsage, useMetrics } from "@/lib/hooks";
 import { toISODate } from "@/lib/date";
-import { apiPost } from "@/lib/api";
 
 export default function OverviewPage() {
   const [refreshKey, setRefreshKey] = useState(0);
-  const [notifyEnabled, setNotifyEnabled] = useState<boolean | null>(null);
-  const [toolNotifyEnabled, setToolNotifyEnabled] = useState<boolean | null>(null);
-  const [runNotifyEnabled, setRunNotifyEnabled] = useState<boolean | null>(null);
-  const [notifySavingKey, setNotifySavingKey] = useState<"all" | "tool" | "run" | null>(null);
-  const [notifyError, setNotifyError] = useState("");
 
   // Auto-refresh data every 10 seconds
   useEffect(() => {
@@ -27,81 +22,6 @@ export default function OverviewPage() {
   const usage = useUsage(refreshKey);
   const todayDate = toISODate(new Date());
   const metrics = useMetrics(todayDate, todayDate, refreshKey);
-
-  useEffect(() => {
-    if (!me.loading && me.data) {
-      const globalEnabled = me.data.email_notifications_enabled ?? true;
-      setNotifyEnabled(globalEnabled);
-      setToolNotifyEnabled(me.data.tool_error_notifications_enabled ?? globalEnabled);
-      setRunNotifyEnabled(me.data.run_failure_notifications_enabled ?? globalEnabled);
-    }
-  }, [
-    me.loading,
-    me.data,
-    me.data?.email_notifications_enabled,
-    me.data?.tool_error_notifications_enabled,
-    me.data?.run_failure_notifications_enabled,
-  ]);
-
-  const handleToggleAllNotifications = async () => {
-    if (notifyEnabled === null || notifySavingKey) return;
-    const prevGlobal = notifyEnabled;
-    const prevTool = toolNotifyEnabled ?? prevGlobal;
-    const prevRun = runNotifyEnabled ?? prevGlobal;
-    const next = !prevGlobal;
-    setNotifyEnabled(next);
-    setToolNotifyEnabled(next);
-    setRunNotifyEnabled(next);
-    setNotifySavingKey("all");
-    setNotifyError("");
-    try {
-      await apiPost("/v1/me/notifications", { email_notifications_enabled: next });
-      setRefreshKey((x) => x + 1);
-    } catch {
-      setNotifyEnabled(prevGlobal);
-      setToolNotifyEnabled(prevTool);
-      setRunNotifyEnabled(prevRun);
-      setNotifyError("Failed to update email alerts. Please try again.");
-    } finally {
-      setNotifySavingKey(null);
-    }
-  };
-
-  const handleToggleToolNotifications = async () => {
-    if (toolNotifyEnabled === null || notifySavingKey || !notifyEnabled) return;
-    const prev = toolNotifyEnabled;
-    const next = !prev;
-    setToolNotifyEnabled(next);
-    setNotifySavingKey("tool");
-    setNotifyError("");
-    try {
-      await apiPost("/v1/me/notifications", { tool_error_notifications_enabled: next });
-      setRefreshKey((x) => x + 1);
-    } catch {
-      setToolNotifyEnabled(prev);
-      setNotifyError("Failed to update tool error alerts. Please try again.");
-    } finally {
-      setNotifySavingKey(null);
-    }
-  };
-
-  const handleToggleRunNotifications = async () => {
-    if (runNotifyEnabled === null || notifySavingKey || !notifyEnabled) return;
-    const prev = runNotifyEnabled;
-    const next = !prev;
-    setRunNotifyEnabled(next);
-    setNotifySavingKey("run");
-    setNotifyError("");
-    try {
-      await apiPost("/v1/me/notifications", { run_failure_notifications_enabled: next });
-      setRefreshKey((x) => x + 1);
-    } catch {
-      setRunNotifyEnabled(prev);
-      setNotifyError("Failed to update run failure alerts. Please try again.");
-    } finally {
-      setNotifySavingKey(null);
-    }
-  };
 
   // Status checks
   const paymentRequired = me.error?.status === 402 || usage.error?.status === 402;
@@ -126,65 +46,6 @@ export default function OverviewPage() {
     !me.loading && !usage.loading && isPaidPlan && (isMakeSoftOverLimit || isAiSoftOverLimit);
 
   const showMakeFirst = makeUsageValue > aiUsageValue;
-  const globalToggleOn = !!notifyEnabled;
-  const toolToggleOn = !!toolNotifyEnabled;
-  const runToggleOn = !!runNotifyEnabled;
-  const globalToggleDisabled = notifyEnabled === null || notifySavingKey !== null || me.loading;
-  const channelToggleDisabled = !notifyEnabled || notifySavingKey !== null || me.loading;
-
-  const renderNotifyToggle = (
-    label: string,
-    on: boolean,
-    disabled: boolean,
-    saving: boolean,
-    onClick: () => void,
-  ) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 10,
-      }}
-    >
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{label}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: on ? "#059669" : "#9ca3af" }}>
-          {on ? (saving ? "Saving..." : "On") : (saving ? "Saving..." : "Off")}
-        </div>
-        <button
-          onClick={onClick}
-          disabled={disabled}
-          aria-pressed={on}
-          style={{
-            width: 44,
-            height: 24,
-            borderRadius: 999,
-            border: "none",
-            cursor: disabled ? "not-allowed" : "pointer",
-            background: on ? "#111" : "#e5e7eb",
-            position: "relative",
-            transition: "background 0.2s",
-            opacity: disabled ? 0.6 : 1,
-          }}
-        >
-          <span
-            style={{
-              position: "absolute",
-              top: 2,
-              left: on ? 22 : 2,
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              background: "white",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
-              transition: "left 0.2s",
-            }}
-          />
-        </button>
-      </div>
-    </div>
-  );
 
   const automationSection = (
     <section>
@@ -359,107 +220,76 @@ export default function OverviewPage() {
         </>
       )}
 
-      {/* --- ACCOUNT QUICK INFO --- */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-        gap: 16,
-        background: "#f8f9fa",
-        padding: "16px 20px",
-        borderRadius: 20,
-        border: "1px solid #eee"
-      }}>
-        <div>
-          <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase" }}>Active Plan</div>
-          <div style={{ fontWeight: 800, color: "#111", fontSize: 18, textTransform: "capitalize" }}>
-            {me.loading ? "···" : me.data?.plan ?? "Free"}
+      {/* --- ACCOUNT ENTRYPOINT --- */}
+      <section
+        style={{
+          border: "1px solid #eee",
+          borderRadius: 16,
+          background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+          padding: 16,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
+              Account & Notifications
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
+              API key preview, email settings, and alert toggles moved to Profile.
+            </div>
+            <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+              Keep Overview focused on usage and performance.
+            </div>
           </div>
-          {showSoftOverLimitBadge && (
+          <Link
+            href="/profile"
+            style={{
+              textDecoration: "none",
+              border: "1px solid #111",
+              background: "#111",
+              color: "white",
+              padding: "9px 12px",
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Open Profile
+          </Link>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+          <div
+            style={{
+              padding: "5px 10px",
+              borderRadius: 999,
+              background: "#eef2ff",
+              color: "#3730a3",
+              fontSize: 12,
+              fontWeight: 700,
+              textTransform: "capitalize",
+            }}
+          >
+            Plan: {me.loading ? "..." : me.data?.plan ?? "free"}
+          </div>
+          {showSoftOverLimitBadge ? (
             <div
               style={{
-                display: "inline-flex",
-                marginTop: 8,
-                padding: "4px 10px",
+                padding: "5px 10px",
                 borderRadius: 999,
                 border: "1px solid #fcd34d",
                 background: "#fffbeb",
                 color: "#92400e",
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 700,
-                letterSpacing: "0.01em",
               }}
             >
               Plan limit exceeded, protection still active.
             </div>
-          )}
+          ) : null}
         </div>
-        <div style={{ textAlign: "left" }}>
-          <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase" }}>API Key Preview</div>
-          <code style={{ background: "#eee", padding: "4px 8px", borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
-            {me.loading ? "········" : me.data?.key_preview ?? "—"}
-          </code>
-          <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase", marginTop: 8 }}>
-            Account Email
-          </div>
-          <div style={{ fontSize: 13, color: "#374151", marginTop: 2, wordBreak: "break-all" }}>
-            {me.loading ? "······@······" : me.data?.email ?? "—"}
-          </div>
-        </div>
-        <div style={{
-          gridColumn: "1 / -1",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: 12,
-          padding: "12px 14px",
-          background: "white",
-          borderRadius: 16,
-          border: "1px solid #eee"
-        }}>
-          <div>
-            <div style={{ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase" }}>
-              Email Alerts
-            </div>
-            <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-              Monthly 80% usage warnings plus separate alerts for tool errors and run failures.
-            </div>
-            {!globalToggleOn && (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 600 }}>
-                Channel toggles are paused until &quot;All Email Alerts&quot; is enabled.
-              </div>
-            )}
-            {notifyError && (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>
-                {notifyError}
-              </div>
-            )}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
-            {renderNotifyToggle(
-              "All Email Alerts",
-              globalToggleOn,
-              globalToggleDisabled,
-              notifySavingKey === "all",
-              handleToggleAllNotifications,
-            )}
-            {renderNotifyToggle(
-              "Tool Errors",
-              toolToggleOn,
-              channelToggleDisabled,
-              notifySavingKey === "tool",
-              handleToggleToolNotifications,
-            )}
-            {renderNotifyToggle(
-              "Run Failures",
-              runToggleOn,
-              channelToggleDisabled,
-              notifySavingKey === "run",
-              handleToggleRunNotifications,
-            )}
-          </div>
-        </div>
-      </div>
+      </section>
 
       {showMakeFirst ? (
         <>

@@ -5,6 +5,15 @@ a { color: inherit; }
 body { overflow-x: hidden; }
 .topnav-toggle { display: none; }
 
+.page-spinner-ring {
+  animation: page-spin 0.8s linear infinite;
+}
+
+@keyframes page-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 820px) {
   .app-main-shell {
     padding: 16px 12px !important;

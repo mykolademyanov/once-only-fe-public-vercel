@@ -27,9 +27,14 @@ function NavLink({ href, label, onNavigate }: { href: string; label: string; onN
   );
 }
 
-export default function TopNav() {
+export default function TopNav({ onStartNavigation }: { onStartNavigation?: () => void }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleNavClick = () => {
+    onStartNavigation?.();
+    setMobileMenuOpen(false);
+  };
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -51,7 +56,7 @@ export default function TopNav() {
           rowGap: 10,
         }}
       >
-        <Link href="/overview" className="topnav-brand" style={{ textDecoration: "none", color: "black", fontWeight: 800, whiteSpace: "nowrap" }}>
+        <Link href="/overview" onClick={onStartNavigation} className="topnav-brand" style={{ textDecoration: "none", color: "black", fontWeight: 800, whiteSpace: "nowrap" }}>
           OnceOnly
         </Link>
 
@@ -81,11 +86,12 @@ export default function TopNav() {
           className={`topnav-nav ${mobileMenuOpen ? "is-open" : ""}`}
           style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", flex: "1 1 560px", minWidth: 0, justifyContent: "flex-end" }}
         >
-          <NavLink href="/overview" label="Overview" onNavigate={() => setMobileMenuOpen(false)} />
-          <NavLink href="/events" label="Events" onNavigate={() => setMobileMenuOpen(false)} />
-          <NavLink href="/run-debug" label="Run Debug" onNavigate={() => setMobileMenuOpen(false)} />
-          <NavLink href="/governance" label="Governance" onNavigate={() => setMobileMenuOpen(false)} />
-          <NavLink href="/metrics" label="Metrics" onNavigate={() => setMobileMenuOpen(false)} />
+          <NavLink href="/overview" label="Overview" onNavigate={handleNavClick} />
+          <NavLink href="/profile" label="Profile" onNavigate={handleNavClick} />
+          <NavLink href="/events" label="Events" onNavigate={handleNavClick} />
+          <NavLink href="/run-debug" label="Run Debug" onNavigate={handleNavClick} />
+          <NavLink href="/governance" label="Governance" onNavigate={handleNavClick} />
+          <NavLink href="/metrics" label="Metrics" onNavigate={handleNavClick} />
 
           <button
             onClick={() => {
