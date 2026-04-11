@@ -175,10 +175,10 @@ export default function OverviewPage() {
             />
 
             <StatCard
-              label={<InfoTip label="Success Rate" description="Completed vs acquired tasks (today)." />}
+              label={<InfoTip label="Success Rate (Today)" description="Completed vs acquired tasks (today)." />}
               value={today?.ai_acquired ? `${aiSuccessRate}%` : "—"}
               color={aiSuccessRate > 90 ? "#059669" : "#4f46e5"}
-              sub="Task reliability"
+              sub="Task reliability today"
             />
 
             <StatCard

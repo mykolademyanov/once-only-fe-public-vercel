@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMe, useToolsGroupedByScope, ToolListItem } from "@/lib/hooks";
 import PageSpinner from "@/components/PageSpinner";
 import {
@@ -65,6 +66,8 @@ const TOOL_LIMITS_BY_PLAN: Record<PlanTier, number> = {
   pro: 100,
   agency: 1000,
 };
+const TOOL_RENDER_INITIAL_PER_SCOPE = 12;
+const TOOL_RENDER_STEP_PER_SCOPE = 12;
 
 function normalizePlan(plan: string | null | undefined): PlanTier {
   const p = String(plan || "free").trim().toLowerCase();
@@ -181,6 +184,8 @@ export default function GovPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ tool: ToolListItem; scopeId: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [visibleToolsByScope, setVisibleToolsByScope] = useState<Record<string, number>>({});
+  const scopeCardsRef = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Policies state
   const [agentId, setAgentId] = useState("");
@@ -242,6 +247,54 @@ export default function GovPage() {
       setPolicyTemplate("custom");
     }
   }, [isProPlus, policyTemplate]);
+
+  useEffect(() => {
+    const grouped = toolsGrouped.data || {};
+    setVisibleToolsByScope((prev) => {
+      const next: Record<string, number> = {};
+      for (const [scopeId, tools] of Object.entries(grouped)) {
+        const existing = prev[scopeId];
+        const baseline = Math.min(TOOL_RENDER_INITIAL_PER_SCOPE, tools.length);
+        next[scopeId] = typeof existing === "number"
+          ? Math.min(Math.max(existing, baseline), tools.length)
+          : baseline;
+      }
+      return next;
+    });
+  }, [toolsGrouped.data]);
+
+  useEffect(() => {
+    if (activeTab !== "tools") return;
+    if (!toolsGrouped.data) return;
+
+    const maybeLoadMoreVisibleTools = () => {
+      setVisibleToolsByScope((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [scopeId, tools] of Object.entries(toolsGrouped.data || {})) {
+          const current = next[scopeId] ?? Math.min(TOOL_RENDER_INITIAL_PER_SCOPE, tools.length);
+          if (current >= tools.length) continue;
+
+          const containerEl = scopeCardsRef.current[scopeId];
+          if (!containerEl) continue;
+          const rect = containerEl.getBoundingClientRect();
+          if (rect.top <= window.innerHeight + 180) {
+            next[scopeId] = Math.min(tools.length, current + TOOL_RENDER_STEP_PER_SCOPE);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    };
+
+    maybeLoadMoreVisibleTools();
+    window.addEventListener("scroll", maybeLoadMoreVisibleTools, { passive: true });
+    window.addEventListener("resize", maybeLoadMoreVisibleTools);
+    return () => {
+      window.removeEventListener("scroll", maybeLoadMoreVisibleTools);
+      window.removeEventListener("resize", maybeLoadMoreVisibleTools);
+    };
+  }, [activeTab, toolsGrouped.data]);
 
   // Load all policies when tab is active
   useEffect(() => {
@@ -329,23 +382,23 @@ export default function GovPage() {
 
   const toolsSection = (
     <section>
-      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
+      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 560px", minWidth: 260 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 4, height: 20, background: "#111", borderRadius: 2 }}></div>
             <h2 style={{ fontSize: 18, fontWeight: 800 }}>Tools Registry</h2>
           </div>
-          <p style={{ fontSize: 13, color: "#666", marginTop: 4, marginLeft: 14 }}>
+          <p style={{ fontSize: 13, color: "#4b5563", marginTop: 4, marginLeft: 14 }}>
             Manage custom tools for your agents. Tools are grouped by scope.
           </p>
           <div style={{
             marginTop: 10,
             marginLeft: 14,
             border: "1px solid #e5e7eb",
-            borderRadius: 10,
-            padding: "10px 12px",
+            borderRadius: 12,
+            padding: "12px 14px",
             background: toolsLimitReached ? "#fffbeb" : "#f8fafc",
-            maxWidth: 420
+            width: "min(100%, 560px)"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
               <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textTransform: "uppercase" }}>
@@ -455,24 +508,40 @@ export default function GovPage() {
           <strong>Error loading tools:</strong> {toolsGrouped.error.message}
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 24 }}>
+        <div style={{ display: "grid", gap: 16 }}>
           {Object.entries(toolsGrouped.data || {}).map(([scopeId, tools]) => (
-            <div key={scopeId}>
-              <div style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#666",
-                textTransform: "uppercase",
-                marginBottom: 12,
-                padding: "0 4px"
-              }}>
-                Scope: {scopeId}
+            <div
+              key={scopeId}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 14,
+                background: "#fafafa",
+                padding: 14
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", textTransform: "uppercase" }}>
+                  Scope: {scopeId}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#4b5563",
+                    background: "#eef2f7",
+                    border: "1px solid #dbe3ee",
+                    borderRadius: 999,
+                    padding: "4px 8px"
+                  }}
+                >
+                  {tools.length} tool{tools.length === 1 ? "" : "s"}
+                </div>
               </div>
 
               {tools.length === 0 ? (
                 <div style={{
                   padding: 24,
-                  background: "#f9f9f9",
+                  background: "white",
                   borderRadius: 12,
                   border: "1px solid #eee",
                   textAlign: "center",
@@ -481,32 +550,77 @@ export default function GovPage() {
                   No tools in this scope yet
                 </div>
               ) : (
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                  gap: 16
-                }}>
-                  {tools.map((tool) => (
-                    <ToolCard
-                      key={`${scopeId}-${tool.name}`}
-                      tool={tool}
-                      scopeId={scopeId}
-                      onEdit={() => setEditingTool(tool)}
-                      onDelete={() => {
-                        setDeleteError("");
-                        setDeleteTarget({ tool, scopeId });
-                      }}
-                      onToggle={async () => {
-                        try {
-                          await toggleTool(tool.name, !tool.enabled, scopeId);
-                          setRefreshKey(x => x + 1);
-                        } catch (err: any) {
-                          setGlobalError(`Failed to toggle tool: ${err.message}`);
-                        }
-                      }}
-                    />
-                  ))}
-                </div>
+                (() => {
+                  const visibleCount = visibleToolsByScope[scopeId] ?? Math.min(TOOL_RENDER_INITIAL_PER_SCOPE, tools.length);
+                  const toolsToRender = tools.slice(0, visibleCount);
+                  const hiddenCount = Math.max(0, tools.length - toolsToRender.length);
+
+                  return (
+                    <>
+                      <div
+                        ref={(el) => {
+                          scopeCardsRef.current[scopeId] = el;
+                        }}
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 14,
+                          alignItems: "stretch"
+                        }}
+                      >
+                        {toolsToRender.map((tool) => (
+                          <div key={`${scopeId}-${tool.name}`} style={{ flex: "0 1 320px", minWidth: 260, width: "100%" }}>
+                            <ToolCard
+                              tool={tool}
+                              scopeId={scopeId}
+                              onEdit={() => setEditingTool(tool)}
+                              onDelete={() => {
+                                setDeleteError("");
+                                setDeleteTarget({ tool, scopeId });
+                              }}
+                              onToggle={async () => {
+                                try {
+                                  await toggleTool(tool.name, !tool.enabled, scopeId);
+                                  setRefreshKey(x => x + 1);
+                                } catch (err: any) {
+                                  setGlobalError(`Failed to toggle tool: ${err.message}`);
+                                }
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {hiddenCount > 0 && (
+                        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                          <button
+                            onClick={() => {
+                              setVisibleToolsByScope((prev) => ({
+                                ...prev,
+                                [scopeId]: Math.min(tools.length, visibleCount + TOOL_RENDER_STEP_PER_SCOPE)
+                              }));
+                            }}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 8,
+                              border: "1px solid #d1d5db",
+                              background: "white",
+                              color: "#111827",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: "pointer"
+                            }}
+                          >
+                            Load {Math.min(TOOL_RENDER_STEP_PER_SCOPE, hiddenCount)} more
+                          </button>
+                          <span style={{ fontSize: 12, color: "#6b7280" }}>
+                            {hiddenCount} remaining
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
               )}
             </div>
           ))}
@@ -1133,12 +1247,6 @@ export default function GovPage() {
             Manage tools, policies, and agent access controls.
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 11, color: "#999", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>Plan</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#111", textTransform: "capitalize" }}>
-            {me.loading ? "•••" : me.data?.plan ?? "Free"}
-          </div>
-        </div>
       </div>
 
       {/* --- TABS --- */}
@@ -1389,7 +1497,8 @@ function ToolCard({
       borderRadius: 12,
       padding: 16,
       background: "white",
-      transition: "all 0.2s"
+      transition: "all 0.2s",
+      height: "100%"
     }} onMouseOver={(e) => {
       const el = e.currentTarget as HTMLDivElement;
       el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
@@ -1405,9 +1514,25 @@ function ToolCard({
           <div style={{ fontSize: 14, fontWeight: 700, color: "#111", marginBottom: 4 }}>
             {tool.name}
           </div>
-          <div style={{ fontSize: 12, color: "#666", fontFamily: "monospace", wordBreak: "break-all" }}>
-            {truncateUrl(tool.url)}
-          </div>
+          <a
+            href={tool.url}
+            target="_blank"
+            rel="noreferrer"
+            title={tool.url}
+            style={{
+              display: "block",
+              fontSize: 12,
+              color: "#4f46e5",
+              fontFamily: "monospace",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: "100%"
+            }}
+          >
+            {tool.url}
+          </a>
         </div>
         <div style={{
           padding: "4px 8px",
@@ -1452,6 +1577,12 @@ function ToolCard({
             {Number.isFinite(tool.max_retries) ? tool.max_retries : "—"}
           </div>
         </div>
+        <div>
+          <div style={{ fontSize: 11, color: "#999", fontWeight: 600 }}>Scope</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#111", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {scopeId}
+          </div>
+        </div>
       </div>
 
       {/* Secret Info */}
@@ -1467,19 +1598,20 @@ function ToolCard({
         gap: 8,
         flexWrap: "wrap",
         paddingTop: 12,
-        borderTop: "1px solid #f3f4f6"
+        borderTop: "1px solid #f3f4f6",
+        marginTop: "auto"
       }}>
         <button
           onClick={handleToggle}
           disabled={loading}
           style={{
             padding: "6px 12px",
-            background: tool.enabled ? "#fee2e2" : "#d1fae5",
-            border: "none",
+            background: tool.enabled ? "#fff7ed" : "#ecfdf5",
+            border: tool.enabled ? "1px solid #fdba74" : "1px solid #86efac",
             borderRadius: 6,
             fontSize: 12,
             fontWeight: 600,
-            color: tool.enabled ? "#991b1b" : "#065f46",
+            color: tool.enabled ? "#9a3412" : "#166534",
             cursor: loading ? "not-allowed" : "pointer",
             transition: "opacity 0.2s",
             opacity: loading ? 0.6 : 1
@@ -1492,12 +1624,12 @@ function ToolCard({
           disabled={loading}
           style={{
             padding: "6px 12px",
-            background: "#fef3c7",
-            border: "none",
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
             borderRadius: 6,
             fontSize: 12,
             fontWeight: 600,
-            color: "#92400e",
+            color: "#1d4ed8",
             cursor: loading ? "not-allowed" : "pointer",
             transition: "opacity 0.2s",
             opacity: loading ? 0.6 : 1
@@ -1510,8 +1642,8 @@ function ToolCard({
           disabled={loading}
           style={{
             padding: "6px 12px",
-            background: "#fee2e2",
-            border: "none",
+            background: "#fef2f2",
+            border: "1px solid #fca5a5",
             borderRadius: 6,
             fontSize: 12,
             fontWeight: 600,
@@ -1525,13 +1657,6 @@ function ToolCard({
       </div>
     </div>
   );
-}
-
-function truncateUrl(url: string): string {
-  if (url.length > 50) {
-    return url.substring(0, 47) + "...";
-  }
-  return url;
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
@@ -2238,7 +2363,9 @@ function CreatePolicyModal({
 }
 
 function Modal({ onClose, title, children }: { onClose: () => void; title: string; children: React.ReactNode }) {
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <>
       <div
         onClick={onClose}
@@ -2274,7 +2401,8 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
         </div>
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 

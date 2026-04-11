@@ -39,6 +39,7 @@ function NavLink({
 export default function TopNav() {
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const me = useMe();
 
@@ -54,11 +55,10 @@ export default function TopNav() {
     if (!menuOpen) return;
 
     const onClickOutside = (event: MouseEvent) => {
-      if (!menuRef.current) return;
       const target = event.target as Node;
-      if (!menuRef.current.contains(target)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current?.contains(target)) return;
+      if (toggleRef.current?.contains(target)) return;
+      setMenuOpen(false);
     };
 
     document.addEventListener("mousedown", onClickOutside);
@@ -116,6 +116,7 @@ export default function TopNav() {
             </div>
 
             <button
+              ref={toggleRef}
               type="button"
               className="topnav-toggle"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
