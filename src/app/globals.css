@@ -14,6 +14,27 @@ body { overflow-x: hidden; }
   to { transform: rotate(360deg); }
 }
 
+.app-page-enter {
+  animation: app-page-fade 220ms ease-out both;
+}
+
+@keyframes app-page-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-page-enter {
+    animation: none;
+  }
+}
+
 .topnav-menu-panel {
   position: absolute;
   top: calc(100% + 8px);

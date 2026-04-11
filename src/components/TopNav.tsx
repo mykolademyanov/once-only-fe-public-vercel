@@ -36,14 +36,13 @@ function NavLink({
   );
 }
 
-export default function TopNav({ onStartNavigation }: { onStartNavigation?: () => void }) {
+export default function TopNav() {
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const me = useMe();
 
   const handleNavigate = () => {
-    onStartNavigation?.();
     setMenuOpen(false);
   };
 
@@ -92,7 +91,6 @@ export default function TopNav({ onStartNavigation }: { onStartNavigation?: () =
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <Link
             href="/overview"
-            onClick={onStartNavigation}
             className="topnav-brand"
             style={{ textDecoration: "none", color: "#111827", fontWeight: 900, letterSpacing: "-0.01em" }}
           >

@@ -231,10 +231,6 @@ export default function GovPage() {
   const showContent = !me.loading && !paymentRequired && !inactive && !rateLimited;
   const initialLoading = (me.loading && !me.data) || (toolsGrouped.loading && !toolsGrouped.data);
 
-  if (initialLoading) {
-    return <PageSpinner fullScreen label="Loading governance..." />;
-  }
-
   // Auto-refresh data every 45 seconds
   useEffect(() => {
     const id = window.setInterval(() => setRefreshKey((x) => x + 1), 45_000);
@@ -1122,6 +1118,10 @@ export default function GovPage() {
       )}
     </section>
   );
+
+  if (initialLoading) {
+    return <PageSpinner fullScreen label="Loading governance..." />;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32, paddingBottom: 60 }}>
