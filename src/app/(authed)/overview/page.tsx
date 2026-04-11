@@ -41,10 +41,15 @@ export default function OverviewPage() {
   const aiUsageValue = usage.data?.ai?.charged_total_month ?? usage.data?.ai?.usage ?? 0;
   const makeLimitValue = usage.data?.make.limit ?? 0;
   const aiLimitValue = usage.data?.ai?.limit ?? 0;
+  const makeProgressMax = makeLimitValue > 0 ? makeLimitValue : Math.max(1, makeUsageValue);
+  const aiProgressMax = aiLimitValue > 0 ? aiLimitValue : Math.max(1, aiUsageValue);
+  const makeDelta = makeLimitValue - makeUsageValue;
+  const aiDelta = aiLimitValue - aiUsageValue;
   const isMakeSoftOverLimit = makeLimitValue > 0 && makeUsageValue > makeLimitValue;
   const isAiSoftOverLimit = aiLimitValue > 0 && aiUsageValue > aiLimitValue;
   const showSoftOverLimitBadge =
     !me.loading && !usage.loading && isPaidPlan && (isMakeSoftOverLimit || isAiSoftOverLimit);
+  const showAccountEntrypoint = isFreePlan || paymentRequired || inactive;
 
   const showMakeFirst = makeUsageValue > aiUsageValue;
   const initialLoading =
@@ -68,30 +73,46 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
         {/* Monthly Progress Bar */}
         <div style={{ gridColumn: "1 / -1", border: "1px solid #eee", borderRadius: 20, padding: 24, background: "white" }}>
-          <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14 }}>Monthly Duplicates Blocked</div>
-          <ProgressBar value={usage.data?.make.usage ?? 0} max={usage.data?.make.limit ?? 1} color="#111" />
+          <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Monthly Duplicates Blocked</div>
+            <div style={{ fontSize: 12, color: "#4b5563", fontWeight: 700 }}>
+              {makeUsageValue.toLocaleString()} / {makeLimitValue > 0 ? makeLimitValue.toLocaleString() : "∞"}
+            </div>
+          </div>
+          <ProgressBar value={makeUsageValue} max={makeProgressMax} color="#111" />
+          <div style={{ marginTop: 8, fontSize: 12, color: makeLimitValue > 0 ? (makeDelta >= 0 ? "#166534" : "#991b1b") : "#4b5563", fontWeight: 700 }}>
+            {makeLimitValue > 0
+              ? (makeDelta >= 0
+                ? `${makeDelta.toLocaleString()} left`
+                : `${Math.abs(makeDelta).toLocaleString()} over`)
+              : "No cap on this plan"}
+          </div>
         </div>
 
         <StatCard
+          align="center"
           label={<InfoTip label="Today's Traffic" description="Total incoming requests processed in the last 24 hours." />}
           value={today?.checks_total ?? 0}
           sub="Requests handled"
         />
         <StatCard
+          align="center"
           label={<InfoTip label="Duplicates Blocked" description="Total number of executions prevented today because they were identical." />}
           value={today?.duplicates_blocked ?? 0}
           color="#059669"
           sub="Operations saved today"
         />
         <StatCard
+          align="center"
           label={<InfoTip label="Cycle Total" description="Total requests processed since the start of your current billing month." />}
           value={usage.data?.make.requests_total_month ?? 0}
           sub="Current month usage"
         />
         <StatCard
+          align="center"
           label={<InfoTip label="Lifetime Saved" description="Total number of redundant operations blocked since you started." />}
           value={me.data?.blocked_total_all_time ?? 0}
           color="#059669"
@@ -118,7 +139,6 @@ export default function OverviewPage() {
         const ai = usage.data?.ai;
         const charged = ai?.charged_total_month ?? ai?.usage ?? 0;
         const polling = ai?.polling_total_month ?? 0;
-        const limit = ai?.limit ?? 1;
         const leaseCalls = ai?.requests_total_month ?? 0;
         const blocked = ai?.blocked_total_month ?? 0;
 
@@ -139,14 +159,31 @@ export default function OverviewPage() {
               <div style={{ marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#4f46e5" }}>
                 AI Credits Used (Charged)
               </div>
-              <ProgressBar value={charged} max={limit} color="#4f46e5" />
-              <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
-                Charged: <b>{charged.toLocaleString()}</b> / {limit.toLocaleString()} • Free polling:{" "}
-                <b>{polling.toLocaleString()}</b> • Over-limit blocks: <b>{blocked.toLocaleString()}</b>
+              <ProgressBar value={charged} max={aiProgressMax} color="#4f46e5" />
+              <div style={{ marginTop: 10, fontSize: 12, color: "#4b5563", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 700 }}>
+                  {charged.toLocaleString()} / {aiLimitValue > 0 ? aiLimitValue.toLocaleString() : "∞"}
+                </span>
+                <span style={{ color: aiLimitValue > 0 ? (aiDelta >= 0 ? "#166534" : "#991b1b") : "#4b5563", fontWeight: 700 }}>
+                  {aiLimitValue > 0
+                    ? (aiDelta >= 0
+                      ? `${aiDelta.toLocaleString()} left`
+                      : `${Math.abs(aiDelta).toLocaleString()} over`)
+                    : "No cap on this plan"}
+                </span>
+              </div>
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 999, padding: "4px 8px" }}>
+                  Polling: {polling.toLocaleString()}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: blocked > 0 ? "#9a3412" : "#4b5563", background: blocked > 0 ? "#fff7ed" : "#f3f4f6", border: blocked > 0 ? "1px solid #fdba74" : "1px solid #e5e7eb", borderRadius: 999, padding: "4px 8px" }}>
+                  Over-limit blocks: {blocked.toLocaleString()}
+                </span>
               </div>
             </div>
 
             <StatCard
+              align="center"
               label={<InfoTip label="Charged Tasks (Month)" description="How many unique AI runs were billed (acquired leases)." />}
               value={charged}
               color="#4f46e5"
@@ -154,6 +191,7 @@ export default function OverviewPage() {
             />
 
             <StatCard
+              align="center"
               label={<InfoTip label="Free Polling (Month)" description="How many /ai/lease calls were free polls on existing keys." />}
               value={polling}
               color="#4f46e5"
@@ -161,6 +199,7 @@ export default function OverviewPage() {
             />
 
             <StatCard
+              align="center"
               label={<InfoTip label="AI Lease Calls (Month)" description="All /ai/lease calls in the month (charged + polling)." />}
               value={leaseCalls}
               color="#4f46e5"
@@ -168,6 +207,7 @@ export default function OverviewPage() {
             />
 
             <StatCard
+              align="center"
               label={<InfoTip label="AI Tasks (Today)" description="Number of tasks initiated today (acquired leases)." />}
               value={today?.ai_acquired ?? 0}
               color="#4f46e5"
@@ -175,6 +215,7 @@ export default function OverviewPage() {
             />
 
             <StatCard
+              align="center"
               label={<InfoTip label="Success Rate (Today)" description="Completed vs acquired tasks (today)." />}
               value={today?.ai_acquired ? `${aiSuccessRate}%` : "—"}
               color={aiSuccessRate > 90 ? "#059669" : "#4f46e5"}
@@ -182,6 +223,7 @@ export default function OverviewPage() {
             />
 
             <StatCard
+              align="center"
               label={<InfoTip label="Agent Errors (Today)" description="Tasks that failed today (via /fail or timeout)." />}
               value={today?.ai_failed ?? 0}
               color={today?.ai_failed ? "#dc2626" : "#666"}
@@ -229,7 +271,60 @@ export default function OverviewPage() {
         </>
       )}
 
-      {/* --- ACCOUNT ENTRYPOINT --- */}
+      <section
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: 16,
+          background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+          padding: 16,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>
+            Limits Snapshot
+          </div>
+          {showSoftOverLimitBadge ? (
+            <div
+              style={{
+                padding: "5px 10px",
+                borderRadius: 999,
+                border: "1px solid #fcd34d",
+                background: "#fffbeb",
+                color: "#92400e",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              Plan limit exceeded, protection still active.
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 10 }}>
+          <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, background: "white", padding: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#111" }}>Automation</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#4b5563" }}>
+                {makeUsageValue.toLocaleString()} / {makeLimitValue > 0 ? makeLimitValue.toLocaleString() : "∞"}
+              </div>
+            </div>
+            <ProgressBar value={makeUsageValue} max={makeProgressMax} color="#111" />
+          </div>
+
+          <div style={{ border: "1px solid #e0e7ff", borderRadius: 12, background: "white", padding: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#4f46e5" }}>AI</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#4b5563" }}>
+                {aiUsageValue.toLocaleString()} / {aiLimitValue > 0 ? aiLimitValue.toLocaleString() : "∞"}
+              </div>
+            </div>
+            <ProgressBar value={aiUsageValue} max={aiProgressMax} color="#4f46e5" />
+          </div>
+        </div>
+      </section>
+
+      {/* --- ACCOUNT ENTRYPOINT (FREE/EXPIRED ONLY) --- */}
+      {showAccountEntrypoint ? (
       <section
         style={{
           border: "1px solid #eee",
@@ -244,7 +339,9 @@ export default function OverviewPage() {
               Account & Notifications
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
-              API key preview, email settings, and alert toggles moved to Profile.
+              {paymentRequired || inactive
+                ? "Plan is expired or inactive. Check billing and alert settings in Profile."
+                : "You are on Free plan. API key preview and email alerts are in Profile."}
             </div>
           </div>
           <Link
@@ -279,23 +376,9 @@ export default function OverviewPage() {
           >
             Plan: {me.loading ? "..." : me.data?.plan ?? "free"}
           </div>
-          {showSoftOverLimitBadge ? (
-            <div
-              style={{
-                padding: "5px 10px",
-                borderRadius: 999,
-                border: "1px solid #fcd34d",
-                background: "#fffbeb",
-                color: "#92400e",
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              Plan limit exceeded, protection still active.
-            </div>
-          ) : null}
         </div>
       </section>
+      ) : null}
 
       {showMakeFirst ? (
         <>

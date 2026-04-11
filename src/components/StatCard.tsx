@@ -7,11 +7,13 @@ export default function StatCard({
   value,
   sub,
   color = "#000", // Default color is set to black
+  align = "left",
 }: {
   label: React.ReactNode;
   value: string | number;
   sub?: string;
   color?: string;
+  align?: "left" | "center";
 }) {
   return (
     <div
@@ -25,7 +27,8 @@ export default function StatCard({
         justifyContent: "center",
         minHeight: 100,
         // Adding a subtle shadow for depth
-        boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+        textAlign: align,
       }}
     >
       {/* Label section */}
